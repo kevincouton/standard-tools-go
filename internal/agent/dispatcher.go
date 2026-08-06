@@ -79,7 +79,7 @@ func (d *Dispatcher) fetchOhlcv(ctx context.Context, args json.RawMessage) (Tool
 	}
 	series, err := d.marketData.Fetch(ctx, ticker, interval, rng, payload.Provider)
 	if err != nil {
-		return ErrResult(err.Error()), nil
+		return ToolResult{}, err
 	}
 	out, err := json.Marshal(series)
 	if err != nil {

@@ -117,9 +117,8 @@ func domainErrorStatus(err error) int {
 
 // errorResponse is the canonical error response body.
 type errorResponse struct {
-	Error   string `json:"error"`
-	Code    string `json:"code"`
-	Details string `json:"details,omitempty"`
+	Error string `json:"error"`
+	Code  string `json:"code"`
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {

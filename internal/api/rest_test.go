@@ -12,6 +12,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/kevincouton/standard-tools-go/internal/agent"
+	"github.com/kevincouton/standard-tools-go/internal/core"
 	"github.com/kevincouton/standard-tools-go/internal/marketdata"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -102,6 +103,14 @@ func TestFetchOhlcvInvalidInterval(t *testing.T) {
 func TestFetchOhlcvIntervalCaseInsensitive(t *testing.T) {
 	rec := sendRequest(NewRouter(newTestState()), http.MethodGet, "/api/v1/market-data/TEST?start=2024-01-01&end=2024-01-05&interval=WEEKLY", "")
 	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.NotEmpty(t, rec.Body.Bytes())
+
+	// The synthetic provider emits one bar per calendar day regardless of the
+	// requested interval, so we cannot assert aggregation here. We verify the
+	// response is valid JSON that decodes into OHLCV bars.
+	var series []core.OHLCV
+	assert.NoError(t, json.Unmarshal(rec.Body.Bytes(), &series))
+	assert.NotEmpty(t, series)
 }
 
 func TestDomainErrorMapping(t *testing.T) {

@@ -95,8 +95,7 @@ func TestDispatchFetchOhlcvToolExecutionError(t *testing.T) {
 	svc := marketdata.NewService("unregistered", marketdata.NewInMemoryCache())
 	d := NewDispatcher(svc)
 	args := json.RawMessage(`{"ticker":"AAPL","start":"2024-01-01","end":"2024-01-05"}`)
-	res, err := d.Dispatch(context.Background(), ToolCall{Name: "fetch_ohlcv", Arguments: args})
-	assert.NoError(t, err)
-	assert.NotNil(t, res.Error)
-	assert.Contains(t, *res.Error, "unregistered")
+	_, err := d.Dispatch(context.Background(), ToolCall{Name: "fetch_ohlcv", Arguments: args})
+	assert.Error(t, err)
+	assert.True(t, errors.Is(err, core.ErrProviderNotAvailable))
 }
