@@ -3,16 +3,19 @@ package api
 import (
 	"encoding/json"
 	"errors"
+	"log/slog"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/go-chi/chi/v5/middleware"
 	"github.com/kevincouton/standard-tools-go/internal/agent"
 	"github.com/kevincouton/standard-tools-go/internal/core"
 )
 
 func NewRouter(state *AppState) *chi.Mux {
 	r := chi.NewRouter()
+	r.Use(middleware.Recoverer)
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
@@ -38,11 +41,7 @@ func dispatchTool(state *AppState) http.HandlerFunc {
 		}
 		result, err := state.Dispatcher.Dispatch(r.Context(), agent.ToolCall{Name: req.Tool, Arguments: req.Arguments})
 		if err != nil {
-			status := http.StatusInternalServerError
-			if errors.Is(err, core.ErrInvalidCommand) || errors.Is(err, core.ErrInvalidTicker) || errors.Is(err, core.ErrInvalidDateRange) {
-				status = http.StatusBadRequest
-			}
-			writeError(w, status, err)
+			writeError(w, domainErrorStatus(err), err)
 			return
 		}
 		if result.Error != nil {
@@ -76,28 +75,85 @@ func fetchOhlcv(state *AppState) http.HandlerFunc {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		interval := core.Daily
-		switch query.Get("interval") {
-		case "weekly":
-			interval = core.Weekly
-		case "monthly":
-			interval = core.Monthly
+		interval, err := core.ParseBarInterval(query.Get("interval"))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
 		}
 		series, err := state.MarketData.Fetch(r.Context(), ticker, interval, rng, query.Get("provider"))
 		if err != nil {
-			writeError(w, http.StatusServiceUnavailable, err)
+			writeError(w, domainErrorStatus(err), err)
 			return
 		}
 		writeJSON(w, http.StatusOK, series)
 	}
 }
 
+// domainErrorStatus maps core domain errors to HTTP status codes.
+//
+// Mapping rules:
+//   - Invalid input errors -> 400 Bad Request
+//   - Not found -> 404 Not Found
+//   - Provider/data-quality problems from upstream -> 502 Bad Gateway / 503 Service Unavailable
+//   - Internal and any unrecognized errors -> 500 Internal Server Error
+func domainErrorStatus(err error) int {
+	switch {
+	case errors.Is(err, core.ErrInvalidCommand),
+		errors.Is(err, core.ErrInvalidTicker),
+		errors.Is(err, core.ErrInvalidDateRange):
+		return http.StatusBadRequest
+	case errors.Is(err, core.ErrNotFound):
+		return http.StatusNotFound
+	case errors.Is(err, core.ErrProviderNotAvailable):
+		return http.StatusServiceUnavailable
+	case errors.Is(err, core.ErrDataQuality):
+		return http.StatusBadGateway
+	case errors.Is(err, core.ErrInternal):
+		return http.StatusInternalServerError
+	default:
+		return http.StatusInternalServerError
+	}
+}
+
+// errorResponse is the canonical error response body.
+type errorResponse struct {
+	Error   string `json:"error"`
+	Code    string `json:"code"`
+	Details string `json:"details,omitempty"`
+}
+
 func writeJSON(w http.ResponseWriter, status int, body any) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(body)
+	if err := json.NewEncoder(w).Encode(body); err != nil {
+		slog.Error("failed to encode JSON response", "error", err)
+	}
 }
 
 func writeError(w http.ResponseWriter, status int, err error) {
-	writeJSON(w, status, map[string]string{"error": err.Error()})
+	writeJSON(w, status, errorResponse{
+		Error: err.Error(),
+		Code:  errorCode(status),
+	})
+}
+
+func errorCode(status int) string {
+	switch status {
+	case http.StatusBadRequest:
+		return "BAD_REQUEST"
+	case http.StatusUnauthorized:
+		return "UNAUTHORIZED"
+	case http.StatusForbidden:
+		return "FORBIDDEN"
+	case http.StatusNotFound:
+		return "NOT_FOUND"
+	case http.StatusBadGateway:
+		return "BAD_GATEWAY"
+	case http.StatusServiceUnavailable:
+		return "SERVICE_UNAVAILABLE"
+	case http.StatusInternalServerError:
+		return "INTERNAL_SERVER_ERROR"
+	default:
+		return "UNKNOWN"
+	}
 }

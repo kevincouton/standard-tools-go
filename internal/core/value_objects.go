@@ -1,6 +1,7 @@
 package core
 
 import (
+	"fmt"
 	"strings"
 	"time"
 
@@ -38,6 +39,21 @@ func (b BarInterval) String() string {
 		return "monthly"
 	default:
 		return "daily"
+	}
+}
+
+// ParseBarInterval parses a bar interval string. Empty string defaults to Daily.
+// Accepted values are "daily", "weekly", and "monthly" (case-insensitive).
+func ParseBarInterval(s string) (BarInterval, error) {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "", "daily":
+		return Daily, nil
+	case "weekly":
+		return Weekly, nil
+	case "monthly":
+		return Monthly, nil
+	default:
+		return Daily, fmt.Errorf("%w: invalid interval %q (want daily, weekly, or monthly)", ErrInvalidCommand, s)
 	}
 }
 

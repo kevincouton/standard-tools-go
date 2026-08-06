@@ -73,7 +73,7 @@ func (d *Dispatcher) fetchOhlcv(ctx context.Context, args json.RawMessage) (Tool
 	if err != nil {
 		return ToolResult{}, err
 	}
-	interval, err := parseInterval(payload.Interval)
+	interval, err := core.ParseBarInterval(payload.Interval)
 	if err != nil {
 		return ToolResult{}, err
 	}
@@ -88,15 +88,3 @@ func (d *Dispatcher) fetchOhlcv(ctx context.Context, args json.RawMessage) (Tool
 	return OkResult(out), nil
 }
 
-func parseInterval(s string) (core.BarInterval, error) {
-	switch s {
-	case "", "daily":
-		return core.Daily, nil
-	case "weekly":
-		return core.Weekly, nil
-	case "monthly":
-		return core.Monthly, nil
-	default:
-		return core.Daily, fmt.Errorf("%w: invalid interval %q (want daily, weekly, or monthly)", core.ErrInvalidCommand, s)
-	}
-}

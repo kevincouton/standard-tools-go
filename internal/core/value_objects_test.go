@@ -46,3 +46,27 @@ func TestBarIntervalString(t *testing.T) {
 	assert.Equal(t, "monthly", Monthly.String())
 	assert.Equal(t, "daily", BarInterval(99).String())
 }
+
+func TestParseBarInterval(t *testing.T) {
+	cases := []struct {
+		input string
+		want  BarInterval
+	}{
+		{"", Daily},
+		{"daily", Daily},
+		{"Daily", Daily},
+		{"DAILY", Daily},
+		{" weekly ", Weekly},
+		{"monthly", Monthly},
+	}
+	for _, tc := range cases {
+		got, err := ParseBarInterval(tc.input)
+		assert.NoError(t, err, "input %q", tc.input)
+		assert.Equal(t, tc.want, got, "input %q", tc.input)
+	}
+}
+
+func TestParseBarIntervalRejectsUnknown(t *testing.T) {
+	_, err := ParseBarInterval("hourly")
+	assert.ErrorIs(t, err, ErrInvalidCommand)
+}
