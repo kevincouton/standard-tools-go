@@ -34,7 +34,10 @@ func (d *Dispatcher) dispatchKnown(ctx context.Context, call ToolCall) (ToolResu
 		for _, t := range ListTools() {
 			names = append(names, t.Name)
 		}
-		out, _ := json.Marshal(names)
+		out, err := json.Marshal(names)
+		if err != nil {
+			return ToolResult{}, fmt.Errorf("%w: failed to marshal tool list: %w", core.ErrInternal, err)
+		}
 		return OkResult(out), nil
 	case "fetch_ohlcv":
 		return d.fetchOhlcv(ctx, call.Arguments)
@@ -52,7 +55,7 @@ func (d *Dispatcher) fetchOhlcv(ctx context.Context, args json.RawMessage) (Tool
 		Provider string `json:"provider"`
 	}
 	if err := json.Unmarshal(args, &payload); err != nil {
-		return ToolResult{}, fmt.Errorf("%w: invalid arguments: %v", core.ErrInvalidCommand, err)
+		return ToolResult{}, fmt.Errorf("%w: invalid arguments: %w", core.ErrInvalidCommand, err)
 	}
 	ticker, err := core.NewTicker(payload.Ticker)
 	if err != nil {
@@ -60,27 +63,40 @@ func (d *Dispatcher) fetchOhlcv(ctx context.Context, args json.RawMessage) (Tool
 	}
 	start, err := time.Parse("2006-01-02", payload.Start)
 	if err != nil {
-		return ToolResult{}, fmt.Errorf("%w: invalid start date", core.ErrInvalidCommand)
+		return ToolResult{}, fmt.Errorf("%w: invalid start date %q: %w", core.ErrInvalidCommand, payload.Start, err)
 	}
 	end, err := time.Parse("2006-01-02", payload.End)
 	if err != nil {
-		return ToolResult{}, fmt.Errorf("%w: invalid end date", core.ErrInvalidCommand)
+		return ToolResult{}, fmt.Errorf("%w: invalid end date %q: %w", core.ErrInvalidCommand, payload.End, err)
 	}
 	rng, err := core.NewDateRange(start, end)
 	if err != nil {
 		return ToolResult{}, err
 	}
-	interval := core.Daily
-	switch payload.Interval {
-	case "weekly":
-		interval = core.Weekly
-	case "monthly":
-		interval = core.Monthly
+	interval, err := parseInterval(payload.Interval)
+	if err != nil {
+		return ToolResult{}, err
 	}
 	series, err := d.marketData.Fetch(ctx, ticker, interval, rng, payload.Provider)
 	if err != nil {
 		return ErrResult(err.Error()), nil
 	}
-	out, _ := json.Marshal(series)
+	out, err := json.Marshal(series)
+	if err != nil {
+		return ToolResult{}, fmt.Errorf("%w: failed to marshal OHLCV series: %w", core.ErrInternal, err)
+	}
 	return OkResult(out), nil
+}
+
+func parseInterval(s string) (core.BarInterval, error) {
+	switch s {
+	case "", "daily":
+		return core.Daily, nil
+	case "weekly":
+		return core.Weekly, nil
+	case "monthly":
+		return core.Monthly, nil
+	default:
+		return core.Daily, fmt.Errorf("%w: invalid interval %q (want daily, weekly, or monthly)", core.ErrInvalidCommand, s)
+	}
 }

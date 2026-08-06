@@ -25,7 +25,8 @@ func ListTools() []ToolDefinition {
 func FindTool(name string) (*ToolDefinition, bool) {
 	for _, t := range ListTools() {
 		if t.Name == name {
-			return &t, true
+			found := t
+			return &found, true
 		}
 	}
 	return nil, false
