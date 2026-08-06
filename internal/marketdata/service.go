@@ -25,10 +25,10 @@ func (s *Service) Register(provider Provider) {
 	s.providers[provider.Name()] = provider
 }
 
-func (s *Service) Fetch(ctx context.Context, ticker core.Ticker, interval core.BarInterval, rng core.DateRange, providerName *string) ([]core.OHLCV, error) {
+func (s *Service) Fetch(ctx context.Context, ticker core.Ticker, interval core.BarInterval, rng core.DateRange, providerName string) ([]core.OHLCV, error) {
 	name := s.defaultProvider
-	if providerName != nil && *providerName != "" {
-		name = *providerName
+	if providerName != "" {
+		name = providerName
 	}
 	provider, ok := s.providers[name]
 	if !ok {

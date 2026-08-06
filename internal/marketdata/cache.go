@@ -25,11 +25,18 @@ func (c *InMemoryCache) Get(ctx context.Context, key string) ([]core.OHLCV, bool
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	series, ok := c.data[key]
-	return series, ok
+	if !ok {
+		return nil, false
+	}
+	out := make([]core.OHLCV, len(series))
+	copy(out, series)
+	return out, true
 }
 
 func (c *InMemoryCache) Put(ctx context.Context, key string, series []core.OHLCV) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	c.data[key] = series
+	out := make([]core.OHLCV, len(series))
+	copy(out, series)
+	c.data[key] = out
 }
