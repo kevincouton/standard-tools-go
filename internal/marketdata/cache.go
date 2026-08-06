@@ -2,6 +2,7 @@ package marketdata
 
 import (
 	"context"
+	"sync"
 
 	"github.com/kevincouton/standard-tools-go/internal/core"
 )
@@ -12,6 +13,7 @@ type Cache interface {
 }
 
 type InMemoryCache struct {
+	mu   sync.RWMutex
 	data map[string][]core.OHLCV
 }
 
@@ -20,10 +22,14 @@ func NewInMemoryCache() *InMemoryCache {
 }
 
 func (c *InMemoryCache) Get(ctx context.Context, key string) ([]core.OHLCV, bool) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
 	series, ok := c.data[key]
 	return series, ok
 }
 
 func (c *InMemoryCache) Put(ctx context.Context, key string, series []core.OHLCV) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
 	c.data[key] = series
 }

@@ -34,7 +34,7 @@ func (s *Service) Fetch(ctx context.Context, ticker core.Ticker, interval core.B
 	if !ok {
 		return nil, fmt.Errorf("%w: provider %s not registered", core.ErrProviderNotAvailable, name)
 	}
-	key := fmt.Sprintf("%s:%s:%s:%s", name, ticker.Symbol, interval.String(), rng.Start.Format("2006-01-02"))
+	key := fmt.Sprintf("%s:%s:%s:%s:%s", name, ticker.Symbol, interval.String(), rng.Start.Format("2006-01-02"), rng.End.Format("2006-01-02"))
 	if cached, hit := s.cache.Get(ctx, key); hit {
 		return cached, nil
 	}
