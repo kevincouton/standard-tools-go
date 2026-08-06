@@ -87,4 +87,3 @@ func (d *Dispatcher) fetchOhlcv(ctx context.Context, args json.RawMessage) (Tool
 	}
 	return OkResult(out), nil
 }
-

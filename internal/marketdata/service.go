@@ -3,6 +3,7 @@ package marketdata
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	"github.com/kevincouton/standard-tools-go/internal/core"
 )
@@ -10,6 +11,7 @@ import (
 type Service struct {
 	defaultProvider string
 	providers       map[string]Provider
+	mu              sync.RWMutex
 	cache           Cache
 }
 
@@ -22,6 +24,8 @@ func NewService(defaultProvider string, cache Cache) *Service {
 }
 
 func (s *Service) Register(provider Provider) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
 	s.providers[provider.Name()] = provider
 }
 
@@ -30,7 +34,9 @@ func (s *Service) Fetch(ctx context.Context, ticker core.Ticker, interval core.B
 	if providerName != "" {
 		name = providerName
 	}
+	s.mu.RLock()
 	provider, ok := s.providers[name]
+	s.mu.RUnlock()
 	if !ok {
 		return nil, fmt.Errorf("%w: provider %s not registered", core.ErrProviderNotAvailable, name)
 	}

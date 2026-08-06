@@ -10,6 +10,11 @@ import (
 	"github.com/kevincouton/standard-tools-go/internal/marketdata"
 )
 
+const (
+	httpPort = 8080
+	grpcPort = 50051
+)
+
 func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 
@@ -23,8 +28,8 @@ func main() {
 		MarketData: svc,
 	}
 
-	slog.Info("starting server", "http", 8080, "grpc", 50051)
-	if err := api.Serve(context.Background(), state, 8080, 50051); err != nil {
+	slog.Info("starting server", "http", httpPort, "grpc", grpcPort)
+	if err := api.Serve(context.Background(), state, httpPort, grpcPort); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)
 	}

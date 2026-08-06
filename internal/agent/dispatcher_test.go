@@ -21,7 +21,6 @@ func TestDispatchHealth(t *testing.T) {
 	d := newTestDispatcher()
 	res, err := d.Dispatch(context.Background(), ToolCall{Name: "health", Arguments: json.RawMessage(`{}`)})
 	assert.NoError(t, err)
-	assert.Nil(t, res.Error)
 	assert.JSONEq(t, `{"status":"ok"}`, string(res.Output))
 }
 
@@ -36,7 +35,6 @@ func TestDispatchListTools(t *testing.T) {
 	d := newTestDispatcher()
 	res, err := d.Dispatch(context.Background(), ToolCall{Name: "list_tools", Arguments: json.RawMessage(`{}`)})
 	assert.NoError(t, err)
-	assert.Nil(t, res.Error)
 
 	var names []string
 	assert.NoError(t, json.Unmarshal(res.Output, &names))
@@ -48,7 +46,6 @@ func TestDispatchFetchOhlcv(t *testing.T) {
 	args := json.RawMessage(`{"ticker":"AAPL","start":"2024-01-01","end":"2024-01-05","interval":"daily"}`)
 	res, err := d.Dispatch(context.Background(), ToolCall{Name: "fetch_ohlcv", Arguments: args})
 	assert.NoError(t, err)
-	assert.Nil(t, res.Error)
 
 	var series []core.OHLCV
 	assert.NoError(t, json.Unmarshal(res.Output, &series))
@@ -60,7 +57,6 @@ func TestDispatchFetchOhlcvDefaultsToDaily(t *testing.T) {
 	args := json.RawMessage(`{"ticker":"AAPL","start":"2024-01-01","end":"2024-01-03"}`)
 	res, err := d.Dispatch(context.Background(), ToolCall{Name: "fetch_ohlcv", Arguments: args})
 	assert.NoError(t, err)
-	assert.Nil(t, res.Error)
 
 	var series []core.OHLCV
 	assert.NoError(t, json.Unmarshal(res.Output, &series))

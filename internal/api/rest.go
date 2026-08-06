@@ -44,10 +44,6 @@ func dispatchTool(state *AppState) http.HandlerFunc {
 			writeError(w, domainErrorStatus(err), err)
 			return
 		}
-		if result.Error != nil {
-			writeError(w, http.StatusBadRequest, errors.New(*result.Error))
-			return
-		}
 		writeJSON(w, http.StatusOK, result)
 	}
 }

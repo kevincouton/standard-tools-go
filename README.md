@@ -4,11 +4,11 @@ Go port of the Standard-Tools quantitative finance toolkit.
 
 ## Stack
 
-- Go 1.23+
+- Go 1.25+
 - Chi (REST)
 - grpc-go (gRPC)
-- pgx (PostgreSQL)
-- Gonum (math)
+- pgx (PostgreSQL) — planned for Phase 2
+- Gonum (math) — planned for Phase 2
 
 ## Quick Start
 

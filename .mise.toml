@@ -1,5 +1,5 @@
 [tools]
-go = "1.23"
+go = "1.25"
 act = "0.2.75"
 podman = "5.2.0"
 
@@ -10,6 +10,7 @@ test-integration = "go test ./... -tags integration"
 fmt = "go fmt ./..."
 vet = "go vet ./..."
 run = "go run ./cmd/server"
-image = "podman build -f Dockerfile -t standard-tools-go:latest ."
-image-native = "podman build -f Dockerfile.native -t standard-tools-go:native ."
-act = "./scripts/run-act-local.sh"
+# image, image-native, and act tasks are deferred until Dockerfiles and scripts exist in Phase 2.
+# image = "podman build -f Dockerfile -t standard-tools-go:latest ."
+# image-native = "podman build -f Dockerfile.native -t standard-tools-go:native ."
+# act = "./scripts/run-act-local.sh"

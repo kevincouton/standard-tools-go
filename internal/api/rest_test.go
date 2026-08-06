@@ -59,7 +59,6 @@ func TestDispatchHealth(t *testing.T) {
 	assert.Equal(t, http.StatusOK, rec.Code)
 	var result agent.ToolResult
 	assert.NoError(t, json.Unmarshal(rec.Body.Bytes(), &result))
-	assert.Nil(t, result.Error)
 }
 
 func TestDispatchUnknownTool(t *testing.T) {
@@ -227,4 +226,3 @@ func TestErrorCode(t *testing.T) {
 	assert.Equal(t, "INTERNAL_SERVER_ERROR", errorCode(http.StatusInternalServerError))
 	assert.Equal(t, "UNKNOWN", errorCode(http.StatusTeapot))
 }
-

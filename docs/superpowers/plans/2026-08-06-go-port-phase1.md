@@ -6,7 +6,32 @@
 
 **Architecture:** One Go module with internal packages. `internal/core` holds errors and value objects. `internal/marketdata` defines a provider interface and ships an in-memory cache plus a Yahoo Finance adapter backed by a synthetic test double. `internal/agent` registers a small initial tool set and dispatches calls. `internal/api` wires Chi REST routes and a grpc-go health service. E2E tests exercise the routes without network calls.
 
-**Tech Stack:** Go 1.23+, `github.com/go-chi/chi/v5`, `google.golang.org/grpc`, `github.com/shopspring/decimal`, `github.com/stretchr/testify`.
+**Tech Stack:** Go 1.25+, `github.com/go-chi/chi/v5`, `google.golang.org/grpc`, `github.com/shopspring/decimal`, `github.com/stretchr/testify`.
+
+---
+
+## As-Built Notes (Phase 1 Complete)
+
+Phase 1 was implemented using `superpowers:subagent-driven-development` and pushed to `origin/main`. The delivered code deviates from the original plan in the following ways; these deviations are intentional and should be carried forward into Phase 2:
+
+- **Go version:** `go.mod` requires **Go 1.25.0** because `google.golang.org/grpc` v1.83+ and related dependencies require it. `.mise.toml`, CI, and README were aligned to Go 1.25+.
+- **Type naming:** The OHLCV type is named `OHLCV` (Go initialism), not `Ohlcv`.
+- **Error granularity:** `core` includes `ErrInvalidTicker` and `ErrInvalidDateRange` in addition to `ErrInvalidCommand`, `ErrNotFound`, `ErrDataQuality`, `ErrProviderNotAvailable`, and `ErrInternal`.
+- **Provider override:** `Service.Fetch` accepts a plain `string` for `providerName`, not `*string`; an empty string means "use the default provider".
+- **BarInterval parsing:** `core.ParseBarInterval` is the canonical parser and is reused by both `internal/agent` and `internal/api`.
+- **gRPC health:** The custom `proto/health.proto` and `internal/api/grpc.go` were replaced with the standard `grpc.health.v1` health service via `google.golang.org/grpc/health`. This removes generated-code boilerplate and is idiomatic.
+- **Server lifecycle:** `api.Serve` accepts a `context.Context`, uses `signal.NotifyContext`, `errgroup`, bounded `http.Server.Shutdown`, and a bounded `grpc.GracefulStop`/`Stop` fallback. It returns `nil` on normal shutdown.
+- **REST routes:** Routes use Chi v5 `{param}` syntax. Phase 1 exposes:
+  - `GET /health` -> JSON `{"status":"ok"}`
+  - `GET /api/v1/agent/tools`
+  - `POST /api/v1/agent/dispatch`
+  - `GET /api/v1/market-data/{ticker}`
+- **Error responses:** `writeError` returns a canonical JSON body `{"error":"...","code":"..."}` with stable `code` strings derived from HTTP status.
+- **Domain error mapping:** REST maps `core` sentinel errors to appropriate HTTP status codes using `errors.Is`.
+- **Concurrency:** `marketdata.Service` provider registration is protected by a `sync.RWMutex`. The in-memory cache already used `sync.RWMutex` with defensive copies.
+- **Tool result model:** `ToolResult` only carries `Output`; errors are returned as Go `error` values. The `ErrResult` helper and `Error` field were removed because they were unreachable and would have swallowed typed errors.
+- **Deferred work:** Dockerfiles, native image builds, `act` local CI script, PostgreSQL, A2A, MCP, orders, indicators/metrics/analysis/backtest/portfolio/screener, and the `audit verify` CLI command remain deferred to Phase 2.
+- **CI:** The `build-images` job is commented out until Dockerfiles exist.
 
 ---
 

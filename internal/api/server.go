@@ -38,7 +38,13 @@ func serve(ctx context.Context, state *AppState, httpLis net.Listener, grpcLis n
 	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	httpSrv := &http.Server{Handler: NewRouter(state)}
+	httpSrv := &http.Server{
+		Handler:           NewRouter(state),
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       30 * time.Second,
+		WriteTimeout:      60 * time.Second,
+		IdleTimeout:       120 * time.Second,
+	}
 	grpcSrv := grpc.NewServer()
 	hs := health.NewServer()
 	grpc_health_v1.RegisterHealthServer(grpcSrv, hs)
