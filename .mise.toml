@@ -1,15 +1,14 @@
 [tools]
 go = "1.23"
 act = "0.2.75"
-podman = "latest"
+podman = "5.2.0"
 
 [tasks]
 build = "go build ./cmd/server && go build ./cmd/cli"
-test = "go test ./... 2>&1 | tee test-output.log && ./scripts/visual-test-report.sh test-output.log test-report.html"
+test = "bash -o pipefail -c 'go test ./... 2>&1 | tee test-output.log && ./scripts/visual-test-report.sh test-output.log test-report.html'"
 test-integration = "go test ./... -tags integration"
 fmt = "go fmt ./..."
 vet = "go vet ./..."
-lint = "golangci-lint run ./..."
 run = "go run ./cmd/server"
 image = "podman build -f Dockerfile -t standard-tools-go:latest ."
 image-native = "podman build -f Dockerfile.native -t standard-tools-go:native ."
