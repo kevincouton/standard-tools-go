@@ -1,32 +1,54 @@
 package api
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
-	pb "github.com/kevincouton/standard-tools-go/proto/health"
+	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 )
 
-func Serve(state *AppState, httpPort, grpcPort int) error {
-	errCh := make(chan error, 2)
+func Serve(ctx context.Context, state *AppState, httpPort, grpcPort int) error {
+	ctx, stop := signal.NotifyContext(ctx, os.Interrupt, syscall.SIGTERM)
+	defer stop()
 
-	go func() {
-		r := NewRouter(state)
-		errCh <- http.ListenAndServe(fmt.Sprintf(":%d", httpPort), r)
-	}()
+	httpSrv := &http.Server{Addr: fmt.Sprintf(":%d", httpPort), Handler: NewRouter(state)}
+	grpcSrv := grpc.NewServer()
+	hs := health.NewServer()
+	grpc_health_v1.RegisterHealthServer(grpcSrv, hs)
+	hs.SetServingStatus("", grpc_health_v1.HealthCheckResponse_SERVING)
 
-	go func() {
-		lis, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
-		if err != nil {
-			errCh <- err
-			return
+	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", grpcPort))
+	if err != nil {
+		return err
+	}
+
+	g, ctx := errgroup.WithContext(ctx)
+	g.Go(func() error {
+		if err := httpSrv.ListenAndServe(); err != nil && !errors.Is(err, http.ErrServerClosed) {
+			return err
 		}
-		s := grpc.NewServer()
-		pb.RegisterHealthServer(s, &HealthServer{})
-		errCh <- s.Serve(lis)
-	}()
-
-	return <-errCh
+		return nil
+	})
+	g.Go(func() error {
+		return grpcSrv.Serve(lis)
+	})
+	g.Go(func() error {
+		<-ctx.Done()
+		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+		_ = httpSrv.Shutdown(shutdownCtx)
+		grpcSrv.GracefulStop()
+		return ctx.Err()
+	})
+	return g.Wait()
 }

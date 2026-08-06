@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"time"
 
@@ -13,7 +14,7 @@ import (
 func NewRouter(state *AppState) *chi.Mux {
 	r := chi.NewRouter()
 	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("ok"))
+		writeJSON(w, http.StatusOK, map[string]string{"status": "ok"})
 	})
 	r.Get("/api/v1/agent/tools", listTools)
 	r.Post("/api/v1/agent/dispatch", dispatchTool(state))
@@ -37,7 +38,15 @@ func dispatchTool(state *AppState) http.HandlerFunc {
 		}
 		result, err := state.Dispatcher.Dispatch(r.Context(), agent.ToolCall{Name: req.Tool, Arguments: req.Arguments})
 		if err != nil {
-			writeError(w, http.StatusBadRequest, err)
+			status := http.StatusInternalServerError
+			if errors.Is(err, core.ErrInvalidCommand) || errors.Is(err, core.ErrInvalidTicker) || errors.Is(err, core.ErrInvalidDateRange) {
+				status = http.StatusBadRequest
+			}
+			writeError(w, status, err)
+			return
+		}
+		if result.Error != nil {
+			writeError(w, http.StatusBadRequest, errors.New(*result.Error))
 			return
 		}
 		writeJSON(w, http.StatusOK, result)

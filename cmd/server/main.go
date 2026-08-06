@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"log/slog"
 	"os"
 
@@ -23,7 +24,7 @@ func main() {
 	}
 
 	slog.Info("starting server", "http", 8080, "grpc", 50051)
-	if err := api.Serve(state, 8080, 50051); err != nil {
+	if err := api.Serve(context.Background(), state, 8080, 50051); err != nil {
 		slog.Error("server error", "error", err)
 		os.Exit(1)
 	}

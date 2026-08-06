@@ -28,7 +28,7 @@ func main() {
 		dispatcher := agent.NewDispatcher(svc)
 		res, err := dispatcher.Dispatch(context.Background(), agent.ToolCall{Name: "health", Arguments: []byte(`{}`)})
 		if err != nil {
-			fmt.Println("audit verify not yet implemented")
+			fmt.Println("audit verify failed:", err)
 			os.Exit(1)
 		}
 		fmt.Println("audit verify:", string(res.Output))
