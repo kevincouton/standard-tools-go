@@ -692,7 +692,19 @@ func (d *Dispatcher) fetchOhlcv(ctx context.Context, args json.RawMessage) (Tool
 }
 ```
 
-Note: add `import "time"` to `dispatcher.go`.
+`dispatcher.go` imports:
+
+```go
+import (
+	"context"
+	"encoding/json"
+	"fmt"
+	"time"
+
+	"github.com/kevincouton/standard-tools-go/internal/core"
+	"github.com/kevincouton/standard-tools-go/internal/marketdata"
+)
+```
 
 - [ ] **Step 4: Write dispatcher test**
 
@@ -783,7 +795,6 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/kevincouton/standard-tools-go/internal/agent"
 	"github.com/kevincouton/standard-tools-go/internal/core"
-	"github.com/kevincouton/standard-tools-go/internal/marketdata"
 )
 
 func NewRouter(state *AppState) *chi.Mux {
@@ -828,8 +839,16 @@ func fetchOhlcv(state *AppState) http.HandlerFunc {
 			return
 		}
 		query := r.URL.Query()
-		start, _ := time.Parse("2006-01-02", query.Get("start"))
-		end, _ := time.Parse("2006-01-02", query.Get("end"))
+		start, err := time.Parse("2006-01-02", query.Get("start"))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		end, err := time.Parse("2006-01-02", query.Get("end"))
+		if err != nil {
+			writeError(w, http.StatusBadRequest, err)
+			return
+		}
 		rng, err := core.NewDateRange(start, end)
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err)
@@ -847,7 +866,7 @@ func fetchOhlcv(state *AppState) http.HandlerFunc {
 		if provider != "" {
 			p = &provider
 		}
-		series, err := state.Dispatcher.MarketDataService().Fetch(r.Context(), ticker, interval, rng, p)
+		series, err := state.MarketData.Fetch(r.Context(), ticker, interval, rng, p)
 		if err != nil {
 			writeError(w, http.StatusServiceUnavailable, err)
 			return
@@ -939,7 +958,6 @@ import (
 	"net"
 	"net/http"
 
-	"github.com/go-chi/chi/v5"
 	pb "github.com/kevincouton/standard-tools-go/proto/health"
 	"google.golang.org/grpc"
 )
@@ -984,6 +1002,8 @@ import (
 )
 
 func main() {
+
+func main() {
 	slog.SetDefault(slog.New(slog.NewTextHandler(os.Stdout, nil)))
 
 	cache := marketdata.NewInMemoryCache()
@@ -1010,12 +1030,8 @@ Create `cmd/cli/main.go`:
 package main
 
 import (
-	"context"
 	"fmt"
 	"os"
-
-	"github.com/kevincouton/standard-tools-go/internal/agent"
-	"github.com/kevincouton/standard-tools-go/internal/marketdata"
 )
 
 func main() {
