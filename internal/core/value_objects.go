@@ -15,7 +15,7 @@ type Ticker struct {
 func NewTicker(symbol string) (Ticker, error) {
 	s := strings.TrimSpace(symbol)
 	if s == "" {
-		return Ticker{}, ErrInvalidCommand
+		return Ticker{}, ErrInvalidTicker
 	}
 	return Ticker{Symbol: s}, nil
 }
@@ -48,12 +48,12 @@ type DateRange struct {
 
 func NewDateRange(start, end time.Time) (DateRange, error) {
 	if end.Before(start) {
-		return DateRange{}, ErrInvalidCommand
+		return DateRange{}, ErrInvalidDateRange
 	}
 	return DateRange{Start: start, End: end}, nil
 }
 
-type Ohlcv struct {
+type OHLCV struct {
 	Date   time.Time
 	Open   decimal.Decimal
 	High   decimal.Decimal
