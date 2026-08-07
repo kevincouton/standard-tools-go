@@ -1,8 +1,5 @@
 name: CI
 
-permissions:
-  contents: read
-
 on:
   push:
     branches: [main]
@@ -13,6 +10,9 @@ jobs:
   quality:
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    permissions:
+      contents: read
+      actions: write
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-go@v5
@@ -23,10 +23,11 @@ jobs:
       - run: test -z "$(go fmt ./...)"
       - run: go vet ./...
       - run: bash -o pipefail -c 'go test ./... 2>&1 | tee test-output.log'
+        id: unit-tests
       - run: ./scripts/visual-test-report.sh test-output.log test-report.html
-        if: success() || failure()
+        if: steps.unit-tests.outcome == 'success' || steps.unit-tests.outcome == 'failure'
       - uses: actions/upload-artifact@v4
-        if: success() || failure()
+        if: steps.unit-tests.outcome == 'success' || steps.unit-tests.outcome == 'failure'
         with:
           name: test-report
           path: test-report.html
@@ -35,6 +36,9 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     needs: quality
+    permissions:
+      contents: read
+      actions: write
     services:
       postgres:
         image: postgres:17
@@ -58,11 +62,12 @@ jobs:
           go-version: "1.25"
           cache: true
       - run: bash -o pipefail -c 'go test ./... -tags integration -race 2>&1 | tee test-integration.log'
+        id: integration-tests
         if: success() || failure()
       - run: ./scripts/visual-test-report.sh test-integration.log test-report-integration.html
-        if: success() || failure()
+        if: steps.integration-tests.outcome == 'success' || steps.integration-tests.outcome == 'failure'
       - uses: actions/upload-artifact@v4
-        if: success() || failure()
+        if: steps.integration-tests.outcome == 'success' || steps.integration-tests.outcome == 'failure'
         with:
           name: test-report-integration
           path: test-report-integration.html
@@ -71,6 +76,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     needs: integration
+    permissions:
+      contents: read
     steps:
       - uses: actions/checkout@v4
       - run: |
@@ -83,11 +90,11 @@ jobs:
           sudo mkdir -p /etc/containers /var/lib/containers/storage /run/containers/storage
           printf 'unqualified-search-registries = ["docker.io"]\n' | sudo tee /etc/containers/registries.conf
           printf '[storage]\ndriver = "vfs"\nrunroot = "/run/containers/storage"\ngraphroot = "/var/lib/containers/storage"\n' | sudo tee /etc/containers/storage.conf
-      - run: podman build -f Dockerfile -t standard-tools-go:latest .
-      - run: podman build -f Dockerfile.native -t standard-tools-go:native .
+      - run: sudo podman build -f Dockerfile -t standard-tools-go:latest .
+      - run: sudo podman build -f Dockerfile.native -t standard-tools-go:native .
       - name: Smoke test classic image
         run: |
-          podman run -d --network host --name stg-classic standard-tools-go:latest
+          sudo podman run -d -p 8080:8080 --name stg-classic standard-tools-go:latest
           success=0
           for i in {1..30}; do
             if curl -sf http://localhost:8080/health; then
@@ -96,14 +103,14 @@ jobs:
             fi
             sleep 1
           done
-          podman rm -f stg-classic
+          sudo podman rm -f stg-classic
           if [ "$success" -ne 1 ]; then
             echo "Classic image health check failed" >&2
             exit 1
           fi
       - name: Smoke test native image
         run: |
-          podman run -d --network host --name stg-native standard-tools-go:native
+          sudo podman run -d -p 8080:8080 --name stg-native standard-tools-go:native
           success=0
           for i in {1..30}; do
             if curl -sf http://localhost:8080/health; then
@@ -112,7 +119,7 @@ jobs:
             fi
             sleep 1
           done
-          podman rm -f stg-native
+          sudo podman rm -f stg-native
           if [ "$success" -ne 1 ]; then
             echo "Native image health check failed" >&2
             exit 1
