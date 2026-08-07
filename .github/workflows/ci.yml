@@ -88,16 +88,32 @@ jobs:
       - name: Smoke test classic image
         run: |
           podman run -d --network host --name stg-classic standard-tools-go:latest
+          success=0
           for i in {1..30}; do
-            curl -sf http://localhost:8080/health && break
+            if curl -sf http://localhost:8080/health; then
+              success=1
+              break
+            fi
             sleep 1
           done
           podman rm -f stg-classic
+          if [ "$success" -ne 1 ]; then
+            echo "Classic image health check failed" >&2
+            exit 1
+          fi
       - name: Smoke test native image
         run: |
           podman run -d --network host --name stg-native standard-tools-go:native
+          success=0
           for i in {1..30}; do
-            curl -sf http://localhost:8080/health && break
+            if curl -sf http://localhost:8080/health; then
+              success=1
+              break
+            fi
             sleep 1
           done
           podman rm -f stg-native
+          if [ "$success" -ne 1 ]; then
+            echo "Native image health check failed" >&2
+            exit 1
+          fi
