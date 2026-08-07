@@ -4,8 +4,6 @@
 # Build stage
 FROM golang:1.25-alpine AS builder
 
-
-
 WORKDIR /src
 
 # Cache dependency downloads.
