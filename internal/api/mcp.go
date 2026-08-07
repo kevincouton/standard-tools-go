@@ -9,7 +9,7 @@ import (
 
 type mcpContentItem struct {
 	Type string `json:"type"`
-	Text any    `json:"text"`
+	Text string `json:"text"`
 }
 
 func mcpTextError(err error) []mcpContentItem {
@@ -59,7 +59,7 @@ func mcpCallTool(state *AppState) http.HandlerFunc {
 
 		writeJSON(w, http.StatusOK, map[string]any{
 			fieldContent: []mcpContentItem{
-				{Type: mcpContentTypeText, Text: result.Output},
+				{Type: mcpContentTypeText, Text: string(result.Output)},
 			},
 		})
 	}

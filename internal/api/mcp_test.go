@@ -50,7 +50,9 @@ func TestMcpCallToolHealth(t *testing.T) {
 	first, ok := content[0].(map[string]any)
 	require.True(t, ok)
 	assert.Equal(t, mcpContentTypeText, first[fieldType])
-	assert.NotEmpty(t, first[fieldText])
+	text, ok := first[fieldText].(string)
+	require.True(t, ok)
+	assert.NotEmpty(t, text)
 }
 
 func TestMcpCallToolUnknownTool(t *testing.T) {
