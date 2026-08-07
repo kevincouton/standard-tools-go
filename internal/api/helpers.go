@@ -19,9 +19,8 @@ func decodeToolCall(r *http.Request) (toolCallRequest, error) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return req, err
 	}
-	if len(req.Arguments) == 0 {
+	if len(req.Arguments) == 0 || string(req.Arguments) == "null" {
 		req.Arguments = json.RawMessage("{}")
 	}
 	return req, nil
 }
-

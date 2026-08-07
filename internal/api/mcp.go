@@ -1,29 +1,34 @@
 package api
 
 import (
-	"encoding/json"
 	"errors"
 	"net/http"
 
 	"github.com/kevincouton/standard-tools-go/internal/agent"
 )
 
+func mcpTextError(err error) []map[string]string {
+	return []map[string]string{
+		{fieldType: mcpContentTypeText, fieldText: mcpErrorPrefix + err.Error()},
+	}
+}
+
 func mcpCapabilities(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"protocolVersion": mcpProtocolVersion,
-		"capabilities": map[string]any{
-			"tools": map[string]any{},
+		fieldProtocolVersion: mcpProtocolVersion,
+		fieldCapabilities: map[string]any{
+			fieldTools: map[string]any{},
 		},
-		"serverInfo": map[string]string{
-			"name":    appName,
-			"version": appVersion,
+		fieldServerInfo: map[string]string{
+			fieldName:    appName,
+			fieldVersion: appVersion,
 		},
 	})
 }
 
 func mcpListTools(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"tools": agent.ListTools(),
+		fieldTools: agent.ListTools(),
 	})
 }
 
@@ -42,26 +47,14 @@ func mcpCallTool(state *AppState) http.HandlerFunc {
 		result, err := state.Dispatcher.Dispatch(r.Context(), agent.ToolCall{Name: req.Name, Arguments: req.Arguments})
 		if err != nil {
 			writeJSON(w, http.StatusOK, map[string]any{
-				"content": []map[string]string{
-					{"type": "text", "text": "error: " + err.Error()},
-				},
-			})
-			return
-		}
-
-		encoded, err := json.Marshal(result.Output)
-		if err != nil {
-			writeJSON(w, http.StatusOK, map[string]any{
-				"content": []map[string]string{
-					{"type": "text", "text": "error: " + err.Error()},
-				},
+				fieldContent: mcpTextError(err),
 			})
 			return
 		}
 
 		writeJSON(w, http.StatusOK, map[string]any{
-			"content": []map[string]string{
-				{"type": "text", "text": string(encoded)},
+			fieldContent: []map[string]any{
+				{fieldType: mcpContentTypeText, fieldText: result.Output},
 			},
 		})
 	}

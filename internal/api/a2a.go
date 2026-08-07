@@ -8,22 +8,29 @@ import (
 	"github.com/kevincouton/standard-tools-go/internal/agent"
 )
 
-func a2aAgentCard(w http.ResponseWriter, r *http.Request) {
-	scheme := r.URL.Scheme
-	if scheme == "" {
-		scheme = "http"
+func requestScheme(r *http.Request) string {
+	if s := r.Header.Get("X-Forwarded-Proto"); s != "" {
+		return s
 	}
+	if r.URL.Scheme != "" {
+		return r.URL.Scheme
+	}
+	return "http"
+}
+
+func a2aAgentCard(w http.ResponseWriter, r *http.Request) {
+	scheme := requestScheme(r)
 
 	writeJSON(w, http.StatusOK, map[string]any{
-		"name":        appName,
-		"description": appDescription,
-		"version":     appVersion,
-		"url":         scheme + "://" + r.Host + "/a2a",
-		"capabilities": map[string]bool{
-			"streaming":         false,
-			"pushNotifications": false,
+		fieldName:        appName,
+		fieldDescription: appDescription,
+		fieldVersion:     appVersion,
+		fieldURL:         scheme + "://" + r.Host + "/a2a",
+		fieldCapabilities: map[string]bool{
+			fieldStreaming:         false,
+			fieldPushNotifications: false,
 		},
-		"skills": []any{},
+		fieldSkills: []any{},
 	})
 }
 
@@ -43,23 +50,22 @@ func a2aDispatchTask(state *AppState) http.HandlerFunc {
 		result, err := state.Dispatcher.Dispatch(r.Context(), agent.ToolCall{Name: req.Tool, Arguments: req.Arguments})
 		if err != nil {
 			writeJSON(w, http.StatusOK, map[string]any{
-				"id":     id,
-				"status": "failed",
-				"result": map[string]any{
-					"output": nil,
-					"error":  err.Error(),
+				fieldID:     id,
+				fieldStatus: a2aStatusFailed,
+				fieldResult: map[string]any{
+					fieldOutput: nil,
+					fieldError:  err.Error(),
 				},
 			})
 			return
 		}
 
-		var output any = result.Output
 		writeJSON(w, http.StatusOK, map[string]any{
-			"id":     id,
-			"status": "completed",
-			"result": map[string]any{
-				"output": output,
-				"error":  nil,
+			fieldID:     id,
+			fieldStatus: a2aStatusCompleted,
+			fieldResult: map[string]any{
+				fieldOutput: result.Output,
+				fieldError:  nil,
 			},
 		})
 	}
