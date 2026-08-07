@@ -19,6 +19,11 @@ func NewPostgresStorage(pool *pgxpool.Pool) *PostgresStorage {
 	return &PostgresStorage{pool: pool}
 }
 
+func (p *PostgresStorage) Close() error {
+	p.pool.Close()
+	return nil
+}
+
 // Append stores a decision record. It expects hashes to be pre-computed by the caller.
 func (p *PostgresStorage) Append(ctx context.Context, r DecisionRecord) error {
 	raw := struct {

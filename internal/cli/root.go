@@ -13,28 +13,22 @@ import (
 
 // Dependencies can be overridden in tests.
 var (
-	loadConfig      = config.Load
-	newStorage      func(ctx context.Context, cfg *config.Config) (audit.Storage, error)
-	defaultNewStorage func(ctx context.Context, cfg *config.Config) (audit.Storage, error)
-)
-
-func init() {
+	loadConfig = config.Load
 	newStorage = func(ctx context.Context, cfg *config.Config) (audit.Storage, error) {
 		if cfg.DatabaseURL == "" {
 			return audit.NewMemoryStorage(), nil
 		}
 		pool, err := storage.NewPool(ctx, cfg.DatabaseURL)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("open database: %w", err)
 		}
 		if err := storage.MigrateUp(pool); err != nil {
 			pool.Close()
-			return nil, err
+			return nil, fmt.Errorf("migrate database: %w", err)
 		}
 		return audit.NewPostgresStorage(pool), nil
 	}
-	defaultNewStorage = newStorage
-}
+)
 
 func newRootCmd() *cobra.Command {
 	root := &cobra.Command{

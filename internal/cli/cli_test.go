@@ -11,14 +11,24 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestVerifyCmdEmptyChain(t *testing.T) {
+func setTestStorage(t *testing.T, store audit.Storage) {
+	t.Helper()
+	origLoadConfig := loadConfig
+	origNewStorage := newStorage
 	loadConfig = func(...string) (*config.Config, error) {
 		return &config.Config{}, nil
 	}
 	newStorage = func(context.Context, *config.Config) (audit.Storage, error) {
-		return audit.NewMemoryStorage(), nil
+		return store, nil
 	}
-	defer func() { loadConfig = config.Load; newStorage = defaultNewStorage }()
+	t.Cleanup(func() {
+		loadConfig = origLoadConfig
+		newStorage = origNewStorage
+	})
+}
+
+func TestVerifyCmdEmptyChain(t *testing.T) {
+	setTestStorage(t, audit.NewMemoryStorage())
 
 	cmd := newVerifyCmd()
 	var out bytes.Buffer
@@ -29,14 +39,8 @@ func TestVerifyCmdEmptyChain(t *testing.T) {
 }
 
 func TestReportCmdExistingRecord(t *testing.T) {
-	loadConfig = func(...string) (*config.Config, error) {
-		return &config.Config{}, nil
-	}
 	store := audit.NewMemoryStorage()
-	newStorage = func(context.Context, *config.Config) (audit.Storage, error) {
-		return store, nil
-	}
-	defer func() { loadConfig = config.Load; newStorage = defaultNewStorage }()
+	setTestStorage(t, store)
 
 	ctx := context.Background()
 	require.NoError(t, audit.NewWriter(store).Write(ctx, audit.DecisionRecord{
@@ -58,4 +62,17 @@ func TestReportCmdExistingRecord(t *testing.T) {
 	require.NoError(t, cmd.Execute())
 	assert.Contains(t, out.String(), "req-123")
 	assert.Contains(t, out.String(), "test-tool")
+}
+
+func TestReportCmdMissingRecord(t *testing.T) {
+	setTestStorage(t, audit.NewMemoryStorage())
+
+	cmd := newReportCmd()
+	var out bytes.Buffer
+	cmd.SetOut(&out)
+	cmd.SetErr(&out)
+	cmd.SetArgs([]string{"missing-id"})
+	err := cmd.Execute()
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "record not found")
 }

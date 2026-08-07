@@ -10,6 +10,7 @@ type Storage interface {
 	Append(ctx context.Context, r DecisionRecord) error
 	Latest(ctx context.Context) (DecisionRecord, error)
 	GetByRequestID(ctx context.Context, requestID string) (DecisionRecord, error)
+	Close() error
 }
 
 // MemoryStorage is an in-memory implementation for unit tests.
@@ -47,4 +48,8 @@ func (m *MemoryStorage) GetByRequestID(_ context.Context, requestID string) (Dec
 		}
 	}
 	return DecisionRecord{}, ErrNotFound
+}
+
+func (m *MemoryStorage) Close() error {
+	return nil
 }

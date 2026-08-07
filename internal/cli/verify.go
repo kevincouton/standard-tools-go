@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"fmt"
 
 	"github.com/kevincouton/standard-tools-go/internal/audit"
@@ -13,15 +12,17 @@ func newVerifyCmd() *cobra.Command {
 		Use:   "verify",
 		Short: "Verify the integrity of the audit chain",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			ctx := context.Background()
+			ctx := cmd.Context()
 			cfg, err := loadConfig()
 			if err != nil {
-				return err
+				return fmt.Errorf("load config: %w", err)
 			}
 			store, err := newStorage(ctx, cfg)
 			if err != nil {
-				return err
+				return fmt.Errorf("open storage: %w", err)
 			}
+			defer store.Close()
+
 			if err := audit.NewVerifier(store).VerifyChain(ctx); err != nil {
 				return fmt.Errorf("audit chain verification failed: %w", err)
 			}
