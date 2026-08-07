@@ -1,7 +1,7 @@
 package api
 
 import (
-	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/google/uuid"
@@ -9,11 +9,16 @@ import (
 )
 
 func a2aAgentCard(w http.ResponseWriter, r *http.Request) {
+	scheme := r.URL.Scheme
+	if scheme == "" {
+		scheme = "http"
+	}
+
 	writeJSON(w, http.StatusOK, map[string]any{
-		"name":        "standard-tools-go",
-		"description": "Quantitative finance toolkit agent",
-		"version":     "0.1.0",
-		"url":         "http://localhost:8080/a2a",
+		"name":        appName,
+		"description": appDescription,
+		"version":     appVersion,
+		"url":         scheme + "://" + r.Host + "/a2a",
 		"capabilities": map[string]bool{
 			"streaming":         false,
 			"pushNotifications": false,
@@ -24,16 +29,14 @@ func a2aAgentCard(w http.ResponseWriter, r *http.Request) {
 
 func a2aDispatchTask(state *AppState) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			Tool      string          `json:"tool"`
-			Arguments json.RawMessage `json:"arguments"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		req, err := decodeToolCall(r)
+		if err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		if req.Arguments == nil {
-			req.Arguments = json.RawMessage("{}")
+		if req.Tool == "" {
+			writeError(w, http.StatusBadRequest, errors.New("tool is required"))
+			return
 		}
 
 		id := uuid.NewString()

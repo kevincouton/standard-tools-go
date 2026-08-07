@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 
 	"github.com/kevincouton/standard-tools-go/internal/agent"
@@ -9,13 +10,13 @@ import (
 
 func mcpCapabilities(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, map[string]any{
-		"protocolVersion": "2024-11-05",
+		"protocolVersion": mcpProtocolVersion,
 		"capabilities": map[string]any{
 			"tools": map[string]any{},
 		},
 		"serverInfo": map[string]string{
-			"name":    "standard-tools-go",
-			"version": "0.1.0",
+			"name":    appName,
+			"version": appVersion,
 		},
 	})
 }
@@ -28,16 +29,14 @@ func mcpListTools(w http.ResponseWriter, r *http.Request) {
 
 func mcpCallTool(state *AppState) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			Name      string          `json:"name"`
-			Arguments json.RawMessage `json:"arguments"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		req, err := decodeToolCall(r)
+		if err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		if req.Arguments == nil {
-			req.Arguments = json.RawMessage("{}")
+		if req.Name == "" {
+			writeError(w, http.StatusBadRequest, errors.New("name is required"))
+			return
 		}
 
 		result, err := state.Dispatcher.Dispatch(r.Context(), agent.ToolCall{Name: req.Name, Arguments: req.Arguments})

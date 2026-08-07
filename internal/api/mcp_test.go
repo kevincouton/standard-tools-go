@@ -15,9 +15,13 @@ func TestMcpCapabilities(t *testing.T) {
 
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
-	assert.Equal(t, "2024-11-05", body["protocolVersion"])
+	assert.Equal(t, mcpProtocolVersion, body["protocolVersion"])
 	assert.NotNil(t, body["capabilities"])
-	assert.NotNil(t, body["serverInfo"])
+
+	serverInfo, ok := body["serverInfo"].(map[string]any)
+	require.True(t, ok)
+	assert.Equal(t, appName, serverInfo["name"])
+	assert.Equal(t, appVersion, serverInfo["version"])
 }
 
 func TestMcpListTools(t *testing.T) {
@@ -61,4 +65,16 @@ func TestMcpCallToolUnknownTool(t *testing.T) {
 	require.True(t, ok)
 	assert.Equal(t, "text", first["type"])
 	assert.Contains(t, first["text"], "error")
+}
+
+func TestMcpCallToolMalformedJSON(t *testing.T) {
+	rec := sendRequest(NewRouter(newTestState()), http.MethodPost, "/mcp/tools/call", `{`)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assertErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST")
+}
+
+func TestMcpCallToolMissingName(t *testing.T) {
+	rec := sendRequest(NewRouter(newTestState()), http.MethodPost, "/mcp/tools/call", `{"arguments":{}}`)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assertErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST")
 }

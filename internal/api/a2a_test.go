@@ -3,6 +3,7 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -15,9 +16,14 @@ func TestA2AAgentCard(t *testing.T) {
 
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
-	assert.Equal(t, "standard-tools-go", body["name"])
-	assert.Equal(t, "Quantitative finance toolkit agent", body["description"])
-	assert.Equal(t, "0.1.0", body["version"])
+	assert.Equal(t, appName, body["name"])
+	assert.Equal(t, appDescription, body["description"])
+	assert.Equal(t, appVersion, body["version"])
+
+	url, ok := body["url"].(string)
+	require.True(t, ok)
+	assert.True(t, strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://"))
+	assert.Contains(t, url, "/a2a")
 }
 
 func TestA2ADispatchHealth(t *testing.T) {
@@ -37,7 +43,7 @@ func TestA2ADispatchHealth(t *testing.T) {
 
 func TestA2ADispatchUnknownTool(t *testing.T) {
 	rec := sendRequest(NewRouter(newTestState()), http.MethodPost, "/a2a/tasks", `{"tool":"nope","arguments":{}}`)
-	require.Contains(t, []int{http.StatusOK, http.StatusBadRequest}, rec.Code)
+	assert.Equal(t, http.StatusOK, rec.Code)
 
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
@@ -47,4 +53,16 @@ func TestA2ADispatchUnknownTool(t *testing.T) {
 	require.True(t, ok)
 	assert.Nil(t, result["output"])
 	assert.NotNil(t, result["error"])
+}
+
+func TestA2ADispatchMalformedJSON(t *testing.T) {
+	rec := sendRequest(NewRouter(newTestState()), http.MethodPost, "/a2a/tasks", `{`)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assertErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST")
+}
+
+func TestA2ADispatchMissingTool(t *testing.T) {
+	rec := sendRequest(NewRouter(newTestState()), http.MethodPost, "/a2a/tasks", `{"arguments":{}}`)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assertErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST")
 }
