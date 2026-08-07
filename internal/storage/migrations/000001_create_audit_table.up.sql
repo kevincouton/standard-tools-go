@@ -1,6 +1,6 @@
 CREATE TABLE IF NOT EXISTS audit_records (
     id BIGSERIAL PRIMARY KEY,
-    request_id UUID NOT NULL UNIQUE,
+    request_id TEXT NOT NULL UNIQUE,
     recorded_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     tool_name TEXT NOT NULL,
     input_hash TEXT NOT NULL,
