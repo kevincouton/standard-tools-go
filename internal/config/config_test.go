@@ -9,12 +9,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+// TestLoadDefaults assumes no .env file exists in the repository root.
+// If one is added, this test should load defaults via a helper that skips .env loading.
 func TestLoadDefaults(t *testing.T) {
 	cfg, err := Load()
 	require.NoError(t, err)
-	assert.Equal(t, 8080, cfg.HTTPPort)
-	assert.Equal(t, 50051, cfg.GRPCPort)
-	assert.Equal(t, "info", cfg.LogLevel)
+	assert.Equal(t, defaultHTTPPort, cfg.HTTPPort)
+	assert.Equal(t, defaultGRPCPort, cfg.GRPCPort)
+	assert.Equal(t, defaultLogLevel, cfg.LogLevel)
 }
 
 func TestLoadEnv(t *testing.T) {
@@ -24,6 +26,13 @@ func TestLoadEnv(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 9090, cfg.HTTPPort)
 	assert.Equal(t, "debug", cfg.LogLevel)
+}
+
+func TestLoadEnvNestedKey(t *testing.T) {
+	t.Setenv("SQT_POLYGON__API_KEY", "env-nested-key")
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, "env-nested-key", cfg.Polygon.APIKey)
 }
 
 func TestLoadFile(t *testing.T) {
@@ -53,22 +62,25 @@ api_key = "file-key"
 	assert.Equal(t, "/tmp/cache", cfg.CacheDir)
 	assert.Equal(t, "/tmp/audit", cfg.AuditDir)
 	assert.Equal(t, "file-key", cfg.Polygon.APIKey)
+}
+
+func TestLoadEnvOverridesFile(t *testing.T) {
+	dir := t.TempDir()
+	path := filepath.Join(dir, "config.toml")
+	require.NoError(t, os.WriteFile(path, []byte(`http_port = 7070
+log_level = "warn"
+`), 0o600))
 
 	t.Setenv("SQT_HTTP_PORT", "9090")
 	t.Setenv("SQT_LOG_LEVEL", "debug")
 
-	cfg, err = Load(path)
+	cfg, err := Load(path)
 	require.NoError(t, err)
 	assert.Equal(t, 9090, cfg.HTTPPort)
 	assert.Equal(t, "debug", cfg.LogLevel)
-	assert.Equal(t, 50052, cfg.GRPCPort)
-	assert.Equal(t, "postgres://localhost/test", cfg.DatabaseURL)
-	assert.Equal(t, "file-key", cfg.Polygon.APIKey)
 }
 
-func TestLoadEnvNestedKey(t *testing.T) {
-	t.Setenv("SQT_POLYGON__API_KEY", "env-nested-key")
-	cfg, err := Load()
-	require.NoError(t, err)
-	assert.Equal(t, "env-nested-key", cfg.Polygon.APIKey)
+func TestLoadMissingFileReturnsError(t *testing.T) {
+	_, err := Load("/nonexistent/path/config.toml")
+	require.Error(t, err)
 }

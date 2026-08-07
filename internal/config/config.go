@@ -11,6 +11,17 @@ import (
 	"github.com/knadh/koanf/v2"
 )
 
+const (
+	envPrefix     = "SQT_"
+	envDelimiter  = "__"
+	keySeparator  = "."
+	defaultDotEnv = ".env"
+
+	defaultHTTPPort = 8080
+	defaultGRPCPort = 50051
+	defaultLogLevel = "info"
+)
+
 type Config struct {
 	HTTPPort    int           `koanf:"http_port"`
 	GRPCPort    int           `koanf:"grpc_port"`
@@ -25,16 +36,22 @@ type PolygonConfig struct {
 	APIKey string `koanf:"api_key"`
 }
 
+// Load reads configuration from optional TOML files and environment variables.
+// Precedence (lowest to highest): defaults < .env < TOML files < SQT_* env vars.
+// Nested keys in env vars are expressed with double underscores, e.g.
+// SQT_POLYGON__API_KEY maps to polygon.api_key.
 func Load(paths ...string) (*Config, error) {
-	_ = godotenv.Load(".env")
-	k := koanf.New(".")
+	// .env is optional; ignore missing-file errors so local development stays simple.
+	_ = godotenv.Load(defaultDotEnv)
+
+	k := koanf.New(keySeparator)
 	for _, p := range paths {
-		_ = k.Load(file.Provider(p), toml.Parser())
+		if err := k.Load(file.Provider(p), toml.Parser()); err != nil {
+			return nil, fmt.Errorf("load config file %q: %w", p, err)
+		}
 	}
-	_ = k.Load(env.Provider("SQT_", ".", func(s string) string {
-		key := strings.ToLower(strings.TrimPrefix(s, "SQT_"))
-		return strings.ReplaceAll(key, "__", ".")
-	}), nil)
+	_ = k.Load(env.Provider(envPrefix, keySeparator, envKeyTransform), nil)
+
 	var cfg Config
 	if err := k.Unmarshal("", &cfg); err != nil {
 		return nil, fmt.Errorf("unmarshal config: %w", err)
@@ -43,14 +60,19 @@ func Load(paths ...string) (*Config, error) {
 	return &cfg, nil
 }
 
+func envKeyTransform(s string) string {
+	key := strings.ToLower(strings.TrimPrefix(s, envPrefix))
+	return strings.ReplaceAll(key, envDelimiter, keySeparator)
+}
+
 func setDefaults(cfg *Config) {
 	if cfg.HTTPPort == 0 {
-		cfg.HTTPPort = 8080
+		cfg.HTTPPort = defaultHTTPPort
 	}
 	if cfg.GRPCPort == 0 {
-		cfg.GRPCPort = 50051
+		cfg.GRPCPort = defaultGRPCPort
 	}
 	if cfg.LogLevel == "" {
-		cfg.LogLevel = "info"
+		cfg.LogLevel = defaultLogLevel
 	}
 }
