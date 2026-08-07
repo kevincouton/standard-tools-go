@@ -62,13 +62,34 @@ func TestServiceExplicitProviderOverride(t *testing.T) {
 	assert.Len(t, series, 5)
 }
 
-func TestYahooProviderNotImplemented(t *testing.T) {
-	y := &YahooProvider{}
-	assert.Equal(t, "yahoo", y.Name())
-	start := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
-	end := time.Date(2024, 1, 5, 0, 0, 0, 0, time.UTC)
-	rng, _ := core.NewDateRange(start, end)
+func TestServiceGetTickerInfo(t *testing.T) {
+	svc := NewService("synthetic", NewInMemoryCache())
+	svc.Register(&SyntheticProvider{})
 	ticker, _ := core.NewTicker("TEST")
-	_, err := y.Fetch(context.Background(), ticker, core.Daily, rng)
+	info, err := svc.GetTickerInfo(context.Background(), ticker)
+	assert.NoError(t, err)
+	assert.Equal(t, "TEST", info.Symbol)
+	assert.Equal(t, "TEST Inc.", info.Name)
+}
+
+func TestServiceGetFinancialRatios(t *testing.T) {
+	svc := NewService("synthetic", NewInMemoryCache())
+	svc.Register(&SyntheticProvider{})
+	ticker, _ := core.NewTicker("TEST")
+	ratios, err := svc.GetFinancialRatios(context.Background(), ticker)
+	assert.NoError(t, err)
+	assert.Equal(t, "TEST", ratios.Symbol)
+}
+
+func TestYahooProviderNotImplementedMetadataMethods(t *testing.T) {
+	y := NewYahooProvider()
+	assert.Equal(t, "yahoo", y.Name())
+	ticker, _ := core.NewTicker("TEST")
+	_, err := y.GetTickerInfo(context.Background(), ticker)
 	assert.True(t, errors.Is(err, core.ErrProviderNotAvailable))
+	_, err = y.GetFinancialRatios(context.Background(), ticker)
+	assert.True(t, errors.Is(err, core.ErrProviderNotAvailable))
+	meta, err := y.GetMetadata(context.Background())
+	assert.NoError(t, err)
+	assert.Equal(t, "yahoo", meta.Provider)
 }

@@ -2,6 +2,7 @@ package marketdata
 
 import (
 	"context"
+	"time"
 
 	"github.com/kevincouton/standard-tools-go/internal/core"
 	"github.com/shopspring/decimal"
@@ -30,4 +31,33 @@ func (s *SyntheticProvider) Fetch(ctx context.Context, ticker core.Ticker, inter
 		price = close
 	}
 	return bars, nil
+}
+
+func (s *SyntheticProvider) GetTickerInfo(ctx context.Context, ticker core.Ticker) (core.TickerInfo, error) {
+	return core.TickerInfo{
+		Symbol:    ticker.Symbol,
+		Name:      ticker.Symbol + " Inc.",
+		Sector:    "Technology",
+		Industry:  "Software",
+		Employees: 1000,
+		City:      "New York",
+		Country:   "USA",
+		Website:   "https://example.com",
+	}, nil
+}
+
+func (s *SyntheticProvider) GetFinancialRatios(ctx context.Context, ticker core.Ticker) (core.FinancialRatios, error) {
+	return core.FinancialRatios{Symbol: ticker.Symbol}, nil
+}
+
+func (s *SyntheticProvider) GetMetadata(ctx context.Context) (core.DataSetMetadata, error) {
+	return core.DataSetMetadata{
+		Provider:         "synthetic",
+		Adjusted:         false,
+		SurvivorshipFree: false,
+		PointInTime:      false,
+		Frequency:        "daily",
+		Timezone:         "UTC",
+		RetrievedAt:      time.Now().UTC(),
+	}, nil
 }

@@ -77,3 +77,39 @@ type OHLCV struct {
 	Close  decimal.Decimal
 	Volume int64
 }
+
+// TickerInfo mirrors the Python Standard-Tools TickerInfo model.
+type TickerInfo struct {
+	Symbol    string `json:"symbol"`
+	Name      string `json:"name"`
+	Sector    string `json:"sector"`
+	Industry  string `json:"industry"`
+	Employees int64  `json:"employees"`
+	City      string `json:"city"`
+	Country   string `json:"country"`
+	Website   string `json:"website"`
+}
+
+// FinancialRatios mirrors the Python FinancialRatios model.
+type FinancialRatios struct {
+	Symbol        string          `json:"symbol"`
+	ForwardPE     decimal.Decimal `json:"forward_pe"`
+	TrailingPE    decimal.Decimal `json:"trailing_pe"`
+	PriceToBook   decimal.Decimal `json:"price_to_book"`
+	DebtToEquity  decimal.Decimal `json:"debt_to_equity"`
+	ROE           decimal.Decimal `json:"roe"`
+	ProfitMargins decimal.Decimal `json:"profit_margins"`
+	DividendYield decimal.Decimal `json:"dividend_yield"`
+	MarketCap     int64           `json:"market_cap"`
+}
+
+// DataSetMetadata describes the provenance of a fetched dataset.
+type DataSetMetadata struct {
+	Provider         string    `json:"provider"`
+	Adjusted         bool      `json:"adjusted"`
+	SurvivorshipFree bool      `json:"survivorship_free"`
+	PointInTime      bool      `json:"point_in_time"`
+	Frequency        string    `json:"frequency"`
+	Timezone         string    `json:"timezone"`
+	RetrievedAt      time.Time `json:"retrieved_at"`
+}

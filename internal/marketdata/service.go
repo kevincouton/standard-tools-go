@@ -34,11 +34,9 @@ func (s *Service) Fetch(ctx context.Context, ticker core.Ticker, interval core.B
 	if providerName != "" {
 		name = providerName
 	}
-	s.mu.RLock()
-	provider, ok := s.providers[name]
-	s.mu.RUnlock()
-	if !ok {
-		return nil, fmt.Errorf("%w: provider %s not registered", core.ErrProviderNotAvailable, name)
+	provider, err := s.resolveProvider(name)
+	if err != nil {
+		return nil, err
 	}
 	key := fmt.Sprintf("%s:%s:%s:%s:%s", name, ticker.Symbol, interval.String(), rng.Start.Format("2006-01-02"), rng.End.Format("2006-01-02"))
 	if cached, hit := s.cache.Get(ctx, key); hit {
@@ -50,4 +48,34 @@ func (s *Service) Fetch(ctx context.Context, ticker core.Ticker, interval core.B
 	}
 	s.cache.Put(ctx, key, series)
 	return series, nil
+}
+
+func (s *Service) GetTickerInfo(ctx context.Context, ticker core.Ticker) (core.TickerInfo, error) {
+	s.mu.RLock()
+	provider, ok := s.providers[s.defaultProvider]
+	s.mu.RUnlock()
+	if !ok {
+		return core.TickerInfo{}, fmt.Errorf("%w: provider %s not registered", core.ErrProviderNotAvailable, s.defaultProvider)
+	}
+	return provider.GetTickerInfo(ctx, ticker)
+}
+
+func (s *Service) GetFinancialRatios(ctx context.Context, ticker core.Ticker) (core.FinancialRatios, error) {
+	s.mu.RLock()
+	provider, ok := s.providers[s.defaultProvider]
+	s.mu.RUnlock()
+	if !ok {
+		return core.FinancialRatios{}, fmt.Errorf("%w: provider %s not registered", core.ErrProviderNotAvailable, s.defaultProvider)
+	}
+	return provider.GetFinancialRatios(ctx, ticker)
+}
+
+func (s *Service) resolveProvider(name string) (Provider, error) {
+	s.mu.RLock()
+	provider, ok := s.providers[name]
+	s.mu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("%w: provider %s not registered", core.ErrProviderNotAvailable, name)
+	}
+	return provider, nil
 }
