@@ -3,6 +3,8 @@ package audit
 import (
 	"context"
 	"errors"
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
@@ -163,4 +165,48 @@ func TestMemoryStorage_LatestNotFound(t *testing.T) {
 
 	_, err := store.Latest(ctx)
 	assert.True(t, errors.Is(err, ErrNotFound))
+}
+
+func TestWriter_ConcurrentWrites(t *testing.T) {
+	ctx := context.Background()
+	store := NewMemoryStorage()
+	w := NewWriter(store)
+	v := NewVerifier(store)
+
+	const n = 100
+	var wg sync.WaitGroup
+	wg.Add(n)
+	for i := 0; i < n; i++ {
+		go func(i int) {
+			defer wg.Done()
+			r := sampleRecord(fmt.Sprintf("r%d", i))
+			_ = w.Write(ctx, r)
+		}(i)
+	}
+	wg.Wait()
+
+	require.NoError(t, v.VerifyChain(ctx))
+
+	latest, err := store.Latest(ctx)
+	require.NoError(t, err)
+	assert.NotEmpty(t, latest.RecordHash)
+
+	// Count distinct prev_record_hash values: each record (except the first) should
+	// point to exactly one predecessor, and no two records should share the same prev.
+	records := make(map[string]DecisionRecord)
+	for i := 0; i < n; i++ {
+		r, err := store.GetByRequestID(ctx, fmt.Sprintf("r%d", i))
+		require.NoError(t, err)
+		records[r.RequestID] = r
+	}
+
+	prevs := make(map[string]int)
+	for _, r := range records {
+		if r.PrevRecordHash != "" {
+			prevs[r.PrevRecordHash]++
+		}
+	}
+	for hash, count := range prevs {
+		assert.Equal(t, 1, count, "prev_record_hash %s is shared by multiple records", hash)
+	}
 }
