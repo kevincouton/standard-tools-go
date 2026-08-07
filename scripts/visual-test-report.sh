@@ -5,8 +5,8 @@ set -euo pipefail
 INPUT="${1:-test-output.log}"
 REPORT="${2:-test-report.html}"
 
-PASSED=$(grep -E '^ok' "$INPUT" | wc -l || true)
-FAILED=$(grep -E '^FAIL' "$INPUT" | wc -l || true)
+PASSED=$(grep -E '^ok' "$INPUT" | wc -l | tr -d ' ' || true)
+FAILED=$(grep -E '^FAIL' "$INPUT" | wc -l | tr -d ' ' || true)
 
 if [ "$FAILED" -eq 0 ]; then
   STATUS="PASS"
@@ -16,7 +16,7 @@ else
   COLOR="#ef4444"
 fi
 
-cat > "$REPORT" <<EOF
+cat > "$REPORT" <<REPORT_EOF
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -46,6 +46,6 @@ cat > "$REPORT" <<EOF
   </div>
 </body>
 </html>
-EOF
+REPORT_EOF
 
 echo "Report written to $REPORT"

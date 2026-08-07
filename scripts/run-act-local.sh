@@ -9,20 +9,26 @@ cd "$(dirname "$0")/.."
 # what act needs to mount into its runner containers.
 DOCKER_HOST=""
 if command -v podman >/dev/null 2>&1; then
-  # Prefer the host-side machine socket when available (macOS/Windows).
   machine_socket=$(podman machine inspect --format '{{.ConnectionInfo.PodmanSocket.Path}}' 2>/dev/null || true)
-  if [ -n "${machine_socket:-}" ]; then
+  if [ -n "${machine_socket:-}" ] && [ "$machine_socket" != "<no value>" ]; then
     DOCKER_HOST="unix://$machine_socket"
   else
     socket_path=$(podman info --format '{{.Host.RemoteSocket.Path}}' 2>/dev/null || true)
-    if [ -n "${socket_path:-}" ]; then
-      DOCKER_HOST="$socket_path"
+    if [ -n "${socket_path:-}" ] && [ "$socket_path" != "<no value>" ]; then
+      case "$socket_path" in
+        unix://*) DOCKER_HOST="$socket_path" ;;
+        /*)       DOCKER_HOST="unix://$socket_path" ;;
+      esac
     fi
   fi
 fi
 
-# Default to the conventional podman socket path.
-export DOCKER_HOST="${DOCKER_HOST:-unix:///run/podman/podman.sock}"
+if [ -z "${DOCKER_HOST:-}" ]; then
+  echo "ERROR: could not detect a podman socket" >&2
+  exit 1
+fi
+
+export DOCKER_HOST
 
 echo "Using container daemon: $DOCKER_HOST"
 
@@ -39,17 +45,21 @@ if ! command -v act >/dev/null 2>&1; then
 fi
 
 # Pin the default runner image so act does not prompt interactively.
-ACT_PLATFORM="-P ubuntu-latest=catthehacker/ubuntu:act-latest"
+ACT_PLATFORM=(-P ubuntu-latest=catthehacker/ubuntu:act-latest)
 # Start act's embedded artifact server so upload-artifact works locally.
 ARTIFACT_PATH="/tmp/standard-tools-go-act-artifacts"
 mkdir -p "$ARTIFACT_PATH"
-ACT_ARTIFACT="--artifact-server-path $ARTIFACT_PATH"
+ACT_ARTIFACT=(--artifact-server-path "$ARTIFACT_PATH")
 
 echo "Running quality job locally with act..."
-"${ACT_BIN[@]}" push --defaultbranch main --job quality --container-daemon-socket "$DOCKER_HOST" $ACT_PLATFORM $ACT_ARTIFACT
+"${ACT_BIN[@]}" push --defaultbranch main --job quality --container-daemon-socket "$DOCKER_HOST" "${ACT_PLATFORM[@]}" "${ACT_ARTIFACT[@]}"
 
 echo "Running integration job locally with act..."
-"${ACT_BIN[@]}" push --defaultbranch main --job integration --container-daemon-socket "$DOCKER_HOST" $ACT_PLATFORM $ACT_ARTIFACT
+"${ACT_BIN[@]}" push --defaultbranch main --job integration --container-daemon-socket "$DOCKER_HOST" "${ACT_PLATFORM[@]}" "${ACT_ARTIFACT[@]}"
+
+# The build-images job is not exercised locally because nested container builds
+# inside act are unreliable. Use `mise run image` / `mise run image-native`
+# directly when you need to build the container images.
 
 # Produce a local visual test report and keep a local copy.
 echo "Generating local visual test report..."

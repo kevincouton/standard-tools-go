@@ -26,6 +26,7 @@ FROM scratch
 COPY --from=builder /usr/local/bin/server /usr/local/bin/server
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
+ENV HOME=/tmp
 USER 65532:65532
 
 EXPOSE 8080 50051

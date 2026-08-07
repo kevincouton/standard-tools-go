@@ -14,8 +14,8 @@ jobs:
       contents: read
       actions: write
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
         with:
           go-version: "1.25"
           cache: true
@@ -32,7 +32,7 @@ jobs:
         id: unit-tests
       - run: ./scripts/visual-test-report.sh test-output.log test-report.html
         if: steps.unit-tests.outcome == 'success' || steps.unit-tests.outcome == 'failure'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
         if: steps.unit-tests.outcome == 'success' || steps.unit-tests.outcome == 'failure'
         with:
           name: test-report
@@ -62,8 +62,8 @@ jobs:
     env:
       SQT_DATABASE_URL: postgres://postgres:postgres@localhost:5432/standard_tools?sslmode=disable
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-go@v5
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/setup-go@0a12ed9d6a96ab950c8f026ed9f722fe0da7ef32 # v5.0.2
         with:
           go-version: "1.25"
           cache: true
@@ -71,7 +71,7 @@ jobs:
         id: integration-tests
       - run: ./scripts/visual-test-report.sh test-integration.log test-report-integration.html
         if: steps.integration-tests.outcome == 'success' || steps.integration-tests.outcome == 'failure'
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@50769540e7f4bd5e21e526ee35c689e35e0d6874 # v4.4.0
         if: steps.integration-tests.outcome == 'success' || steps.integration-tests.outcome == 'failure'
         with:
           name: test-report-integration
@@ -84,7 +84,7 @@ jobs:
     permissions:
       contents: read
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
       - run: |
           sudo apt-get update
           sudo apt-get install -y podman
@@ -108,6 +108,7 @@ jobs:
             fi
             sleep 1
           done
+          sudo podman logs stg-classic
           sudo podman rm -f stg-classic
           if [ "$success" -ne 1 ]; then
             echo "Classic image health check failed" >&2
@@ -124,6 +125,7 @@ jobs:
             fi
             sleep 1
           done
+          sudo podman logs stg-native
           sudo podman rm -f stg-native
           if [ "$success" -ne 1 ]; then
             echo "Native image health check failed" >&2
