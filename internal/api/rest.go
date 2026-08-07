@@ -22,6 +22,11 @@ func NewRouter(state *AppState) *chi.Mux {
 	r.Get("/api/v1/agent/tools", listTools)
 	r.Post("/api/v1/agent/dispatch", dispatchTool(state))
 	r.Get("/api/v1/market-data/{ticker}", fetchOhlcv(state))
+	r.Get("/a2a/agent.json", a2aAgentCard)
+	r.Post("/a2a/tasks", a2aDispatchTask(state))
+	r.Get("/mcp/capabilities", mcpCapabilities)
+	r.Post("/mcp/tools/list", mcpListTools)
+	r.Post("/mcp/tools/call", mcpCallTool(state))
 	return r
 }
 
