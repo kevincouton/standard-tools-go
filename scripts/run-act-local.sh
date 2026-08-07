@@ -27,9 +27,11 @@ export DOCKER_HOST="${DOCKER_HOST:-unix:///run/podman/podman.sock}"
 echo "Using container daemon: $DOCKER_HOST"
 
 # Ensure act is available, installing via mise if possible.
+ACT_BIN=(act)
 if ! command -v act >/dev/null 2>&1; then
   if command -v mise >/dev/null 2>&1; then
     mise install act
+    ACT_BIN=(mise x -- act)
   else
     echo "WARN: act is not installed and mise is not available. Skipping local act run." >&2
     exit 0
@@ -44,10 +46,10 @@ mkdir -p "$ARTIFACT_PATH"
 ACT_ARTIFACT="--artifact-server-path $ARTIFACT_PATH"
 
 echo "Running quality job locally with act..."
-act push --defaultbranch main --job quality --container-daemon-socket "$DOCKER_HOST" $ACT_PLATFORM $ACT_ARTIFACT
+"${ACT_BIN[@]}" push --defaultbranch main --job quality --container-daemon-socket "$DOCKER_HOST" $ACT_PLATFORM $ACT_ARTIFACT
 
 echo "Running integration job locally with act..."
-act push --defaultbranch main --job integration --container-daemon-socket "$DOCKER_HOST" $ACT_PLATFORM $ACT_ARTIFACT
+"${ACT_BIN[@]}" push --defaultbranch main --job integration --container-daemon-socket "$DOCKER_HOST" $ACT_PLATFORM $ACT_ARTIFACT
 
 # Produce a local visual test report and keep a local copy.
 echo "Generating local visual test report..."
