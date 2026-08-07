@@ -8,6 +8,9 @@ import (
 	"github.com/shopspring/decimal"
 )
 
+// DateFormat is the canonical date layout used across the application.
+const DateFormat = "2006-01-02"
+
 type Ticker struct {
 	Symbol   string
 	Exchange string

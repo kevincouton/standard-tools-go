@@ -2,20 +2,26 @@ package agent
 
 import "encoding/json"
 
+const (
+	ToolHealth     = "health"
+	ToolListTools  = "list_tools"
+	ToolFetchOhlcv = "fetch_ohlcv"
+)
+
 func ListTools() []ToolDefinition {
 	return []ToolDefinition{
 		{
-			Name:        "health",
+			Name:        ToolHealth,
 			Description: "Return agent health status.",
 			Parameters:  json.RawMessage(`{"type":"object","properties":{}}`),
 		},
 		{
-			Name:        "list_tools",
+			Name:        ToolListTools,
 			Description: "List all registered tool names.",
 			Parameters:  json.RawMessage(`{"type":"object","properties":{}}`),
 		},
 		{
-			Name:        "fetch_ohlcv",
+			Name:        ToolFetchOhlcv,
 			Description: "Fetch OHLCV bars for a single ticker.",
 			Parameters:  json.RawMessage(`{"type":"object","properties":{"ticker":{"type":"string"},"start":{"type":"string","format":"date"},"end":{"type":"string","format":"date"},"interval":{"type":"string","enum":["daily","weekly","monthly"]},"provider":{"type":"string"}},"required":["ticker","start","end"]}`),
 		},

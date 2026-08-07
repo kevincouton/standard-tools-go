@@ -13,8 +13,6 @@ import (
 	"github.com/kevincouton/standard-tools-go/internal/core"
 )
 
-const dateFormat = "2006-01-02"
-
 func NewRouter(state *AppState) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
@@ -64,12 +62,12 @@ func fetchOhlcv(state *AppState) http.HandlerFunc {
 			return
 		}
 		query := r.URL.Query()
-		start, err := time.Parse(dateFormat, query.Get("start"))
+		start, err := time.Parse(core.DateFormat, query.Get("start"))
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		end, err := time.Parse(dateFormat, query.Get("end"))
+		end, err := time.Parse(core.DateFormat, query.Get("end"))
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return

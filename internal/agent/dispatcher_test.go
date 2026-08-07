@@ -19,7 +19,7 @@ func newTestDispatcher() *Dispatcher {
 
 func TestDispatchHealth(t *testing.T) {
 	d := newTestDispatcher()
-	res, err := d.Dispatch(context.Background(), ToolCall{Name: "health", Arguments: json.RawMessage(`{}`)})
+	res, err := d.Dispatch(context.Background(), ToolCall{Name: ToolHealth, Arguments: json.RawMessage(`{}`)})
 	assert.NoError(t, err)
 	assert.JSONEq(t, `{"status":"ok"}`, string(res.Output))
 }
@@ -33,18 +33,18 @@ func TestDispatchUnknownTool(t *testing.T) {
 
 func TestDispatchListTools(t *testing.T) {
 	d := newTestDispatcher()
-	res, err := d.Dispatch(context.Background(), ToolCall{Name: "list_tools", Arguments: json.RawMessage(`{}`)})
+	res, err := d.Dispatch(context.Background(), ToolCall{Name: ToolListTools, Arguments: json.RawMessage(`{}`)})
 	assert.NoError(t, err)
 
 	var names []string
 	assert.NoError(t, json.Unmarshal(res.Output, &names))
-	assert.Equal(t, []string{"health", "list_tools", "fetch_ohlcv"}, names)
+	assert.Equal(t, []string{ToolHealth, ToolListTools, ToolFetchOhlcv}, names)
 }
 
 func TestDispatchFetchOhlcv(t *testing.T) {
 	d := newTestDispatcher()
 	args := json.RawMessage(`{"ticker":"AAPL","start":"2024-01-01","end":"2024-01-05","interval":"daily"}`)
-	res, err := d.Dispatch(context.Background(), ToolCall{Name: "fetch_ohlcv", Arguments: args})
+	res, err := d.Dispatch(context.Background(), ToolCall{Name: ToolFetchOhlcv, Arguments: args})
 	assert.NoError(t, err)
 
 	var series []core.OHLCV
@@ -55,7 +55,7 @@ func TestDispatchFetchOhlcv(t *testing.T) {
 func TestDispatchFetchOhlcvDefaultsToDaily(t *testing.T) {
 	d := newTestDispatcher()
 	args := json.RawMessage(`{"ticker":"AAPL","start":"2024-01-01","end":"2024-01-03"}`)
-	res, err := d.Dispatch(context.Background(), ToolCall{Name: "fetch_ohlcv", Arguments: args})
+	res, err := d.Dispatch(context.Background(), ToolCall{Name: ToolFetchOhlcv, Arguments: args})
 	assert.NoError(t, err)
 
 	var series []core.OHLCV
@@ -66,7 +66,7 @@ func TestDispatchFetchOhlcvDefaultsToDaily(t *testing.T) {
 func TestDispatchFetchOhlcvInvalidTicker(t *testing.T) {
 	d := newTestDispatcher()
 	args := json.RawMessage(`{"ticker":"  ","start":"2024-01-01","end":"2024-01-05"}`)
-	_, err := d.Dispatch(context.Background(), ToolCall{Name: "fetch_ohlcv", Arguments: args})
+	_, err := d.Dispatch(context.Background(), ToolCall{Name: ToolFetchOhlcv, Arguments: args})
 	assert.Error(t, err)
 	assert.True(t, errors.Is(err, core.ErrInvalidTicker))
 }
@@ -74,7 +74,7 @@ func TestDispatchFetchOhlcvInvalidTicker(t *testing.T) {
 func TestDispatchFetchOhlcvInvalidDate(t *testing.T) {
 	d := newTestDispatcher()
 	args := json.RawMessage(`{"ticker":"AAPL","start":"not-a-date","end":"2024-01-05"}`)
-	_, err := d.Dispatch(context.Background(), ToolCall{Name: "fetch_ohlcv", Arguments: args})
+	_, err := d.Dispatch(context.Background(), ToolCall{Name: ToolFetchOhlcv, Arguments: args})
 	assert.Error(t, err)
 	assert.True(t, errors.Is(err, core.ErrInvalidCommand))
 }
@@ -82,7 +82,7 @@ func TestDispatchFetchOhlcvInvalidDate(t *testing.T) {
 func TestDispatchFetchOhlcvInvalidInterval(t *testing.T) {
 	d := newTestDispatcher()
 	args := json.RawMessage(`{"ticker":"AAPL","start":"2024-01-01","end":"2024-01-05","interval":"hourly"}`)
-	_, err := d.Dispatch(context.Background(), ToolCall{Name: "fetch_ohlcv", Arguments: args})
+	_, err := d.Dispatch(context.Background(), ToolCall{Name: ToolFetchOhlcv, Arguments: args})
 	assert.Error(t, err)
 	assert.True(t, errors.Is(err, core.ErrInvalidCommand))
 }
@@ -91,7 +91,7 @@ func TestDispatchFetchOhlcvToolExecutionError(t *testing.T) {
 	svc := marketdata.NewService("unregistered", marketdata.NewInMemoryCache())
 	d := NewDispatcher(svc)
 	args := json.RawMessage(`{"ticker":"AAPL","start":"2024-01-01","end":"2024-01-05"}`)
-	_, err := d.Dispatch(context.Background(), ToolCall{Name: "fetch_ohlcv", Arguments: args})
+	_, err := d.Dispatch(context.Background(), ToolCall{Name: ToolFetchOhlcv, Arguments: args})
 	assert.Error(t, err)
 	assert.True(t, errors.Is(err, core.ErrProviderNotAvailable))
 }

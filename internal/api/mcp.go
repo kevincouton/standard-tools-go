@@ -7,9 +7,14 @@ import (
 	"github.com/kevincouton/standard-tools-go/internal/agent"
 )
 
-func mcpTextError(err error) []map[string]string {
-	return []map[string]string{
-		{fieldType: mcpContentTypeText, fieldText: mcpErrorPrefix + err.Error()},
+type mcpContentItem struct {
+	Type string `json:"type"`
+	Text any    `json:"text"`
+}
+
+func mcpTextError(err error) []mcpContentItem {
+	return []mcpContentItem{
+		{Type: mcpContentTypeText, Text: mcpErrorPrefix + err.Error()},
 	}
 }
 
@@ -53,8 +58,8 @@ func mcpCallTool(state *AppState) http.HandlerFunc {
 		}
 
 		writeJSON(w, http.StatusOK, map[string]any{
-			fieldContent: []map[string]any{
-				{fieldType: mcpContentTypeText, fieldText: result.Output},
+			fieldContent: []mcpContentItem{
+				{Type: mcpContentTypeText, Text: result.Output},
 			},
 		})
 	}
