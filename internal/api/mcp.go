@@ -44,7 +44,7 @@ func mcpCallTool(state *AppState) http.HandlerFunc {
 		if err != nil {
 			writeJSON(w, http.StatusOK, map[string]any{
 				"content": []map[string]string{
-					{"type": "text", "text": err.Error()},
+					{"type": "text", "text": "error: " + err.Error()},
 				},
 			})
 			return
@@ -54,7 +54,7 @@ func mcpCallTool(state *AppState) http.HandlerFunc {
 		if err != nil {
 			writeJSON(w, http.StatusOK, map[string]any{
 				"content": []map[string]string{
-					{"type": "text", "text": err.Error()},
+					{"type": "text", "text": "error: " + err.Error()},
 				},
 			})
 			return
