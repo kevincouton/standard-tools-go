@@ -32,7 +32,8 @@ func Load(paths ...string) (*Config, error) {
 		_ = k.Load(file.Provider(p), toml.Parser())
 	}
 	_ = k.Load(env.Provider("SQT_", ".", func(s string) string {
-		return strings.ToLower(strings.TrimPrefix(s, "SQT_"))
+		key := strings.ToLower(strings.TrimPrefix(s, "SQT_"))
+		return strings.ReplaceAll(key, "__", ".")
 	}), nil)
 	var cfg Config
 	if err := k.Unmarshal("", &cfg); err != nil {

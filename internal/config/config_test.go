@@ -65,3 +65,10 @@ api_key = "file-key"
 	assert.Equal(t, "postgres://localhost/test", cfg.DatabaseURL)
 	assert.Equal(t, "file-key", cfg.Polygon.APIKey)
 }
+
+func TestLoadEnvNestedKey(t *testing.T) {
+	t.Setenv("SQT_POLYGON__API_KEY", "env-nested-key")
+	cfg, err := Load()
+	require.NoError(t, err)
+	assert.Equal(t, "env-nested-key", cfg.Polygon.APIKey)
+}
