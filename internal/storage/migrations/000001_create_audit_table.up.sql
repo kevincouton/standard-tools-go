@@ -15,5 +15,5 @@ CREATE TABLE IF NOT EXISTS audit_records (
     raw JSONB NOT NULL
 );
 
-CREATE INDEX idx_audit_recorded_at ON audit_records(recorded_at);
-CREATE INDEX idx_audit_tool_name ON audit_records(tool_name);
+CREATE INDEX IF NOT EXISTS idx_audit_recorded_at ON audit_records(recorded_at);
+CREATE INDEX IF NOT EXISTS idx_audit_tool_name ON audit_records(tool_name);
