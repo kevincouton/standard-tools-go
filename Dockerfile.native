@@ -17,18 +17,16 @@ COPY . .
 
 # Build a fully static, stripped Linux binary.
 ENV CGO_ENABLED=0 GOOS=linux
-RUN go build -a -installsuffix cgo \
-    -ldflags '-s -w -extldflags -static' \
-    -o /bin/server ./cmd/server
+RUN go build -ldflags='-s -w' -o /usr/local/bin/server ./cmd/server
 
 # Final stage: empty scratch image with only the static binary and CA certs.
 FROM scratch
 
-COPY --from=builder /bin/server /server
+COPY --from=builder /usr/local/bin/server /usr/local/bin/server
 COPY --from=builder /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt
 
 USER 65532:65532
 
 EXPOSE 8080 50051
 
-ENTRYPOINT ["/server"]
+ENTRYPOINT ["/usr/local/bin/server"]

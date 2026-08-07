@@ -44,20 +44,21 @@ mkdir -p "$ARTIFACT_PATH"
 ACT_ARTIFACT="--artifact-server-path $ARTIFACT_PATH"
 
 echo "Running quality job locally with act..."
-act push --job quality --container-daemon-socket "$DOCKER_HOST" $ACT_PLATFORM $ACT_ARTIFACT
+act push --defaultbranch main --job quality --container-daemon-socket "$DOCKER_HOST" $ACT_PLATFORM $ACT_ARTIFACT
 
 echo "Running integration job locally with act..."
-if act push --job integration --container-daemon-socket "$DOCKER_HOST" $ACT_PLATFORM $ACT_ARTIFACT; then
-  echo "Integration job completed."
-else
-  echo "WARN: integration job failed or could not run (often due to Postgres service image availability)." >&2
-fi
+act push --defaultbranch main --job integration --container-daemon-socket "$DOCKER_HOST" $ACT_PLATFORM $ACT_ARTIFACT
 
 # Produce a local visual test report and keep a local copy.
 echo "Generating local visual test report..."
-bash -o pipefail -c 'go test ./... 2>&1 | tee test-output.log && ./scripts/visual-test-report.sh test-output.log test-report.html' || true
+set +e
+bash -o pipefail -c 'go test ./... 2>&1 | tee test-output.log && ./scripts/visual-test-report.sh test-output.log test-report.html'
+test_exit=$?
+set -e
 
 if [ -f test-report.html ]; then
   cp test-report.html test-report-local.html
   echo "Local report copied to test-report-local.html"
 fi
+
+exit $test_exit

@@ -6,7 +6,7 @@ podman = "5.2.0"
 [tasks]
 build = "go build ./cmd/server && go build ./cmd/cli"
 test = "bash -o pipefail -c 'go test ./... 2>&1 | tee test-output.log && ./scripts/visual-test-report.sh test-output.log test-report.html'"
-test-integration = "go test ./... -tags integration"
+test-integration = "go test ./... -tags integration -race"
 fmt = "go fmt ./..."
 vet = "go vet ./..."
 run = "go run ./cmd/server"

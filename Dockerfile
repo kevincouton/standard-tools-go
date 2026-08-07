@@ -17,15 +17,15 @@ COPY . .
 
 # Build a static Linux binary for the server.
 ENV CGO_ENABLED=0 GOOS=linux
-RUN go build -o /bin/server ./cmd/server
+RUN go build -ldflags='-s -w' -o /usr/local/bin/server ./cmd/server
 
 # Final stage: minimal distroless image.
 FROM gcr.io/distroless/static-debian12:nonroot
 
-COPY --from=builder /bin/server /server
+COPY --from=builder /usr/local/bin/server /usr/local/bin/server
 
 USER nonroot:nonroot
 
 EXPOSE 8080 50051
 
-ENTRYPOINT ["/server"]
+ENTRYPOINT ["/usr/local/bin/server"]
