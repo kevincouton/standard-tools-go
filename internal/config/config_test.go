@@ -36,6 +36,12 @@ func TestLoadEnvNestedKey(t *testing.T) {
 }
 
 func TestLoadFile(t *testing.T) {
+	// The CI job sets SQT_DATABASE_URL for integration tests; isolate this test
+	// from process-level env so the file value is honored.
+	origDatabaseURL := os.Getenv("SQT_DATABASE_URL")
+	require.NoError(t, os.Unsetenv("SQT_DATABASE_URL"))
+	t.Cleanup(func() { _ = os.Setenv("SQT_DATABASE_URL", origDatabaseURL) })
+
 	dir := t.TempDir()
 	path := filepath.Join(dir, "config.toml")
 
