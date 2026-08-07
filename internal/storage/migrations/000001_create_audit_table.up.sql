@@ -12,6 +12,8 @@ CREATE TABLE IF NOT EXISTS audit_records (
     random_seed BIGINT,
     prev_record_hash TEXT,
     record_hash TEXT NOT NULL,
+    input_json TEXT NOT NULL,
+    output_json TEXT NOT NULL,
     raw JSONB NOT NULL
 );
 

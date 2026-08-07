@@ -14,7 +14,7 @@ type Storage interface {
 
 // MemoryStorage is an in-memory implementation for unit tests.
 type MemoryStorage struct {
-	mu      sync.Mutex
+	mu      sync.RWMutex
 	records []DecisionRecord
 }
 
@@ -30,21 +30,21 @@ func (m *MemoryStorage) Append(_ context.Context, r DecisionRecord) error {
 }
 
 func (m *MemoryStorage) Latest(_ context.Context) (DecisionRecord, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if len(m.records) == 0 {
-		return DecisionRecord{}, nil
+		return DecisionRecord{}, ErrNotFound
 	}
 	return m.records[len(m.records)-1], nil
 }
 
 func (m *MemoryStorage) GetByRequestID(_ context.Context, requestID string) (DecisionRecord, error) {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	for i := len(m.records) - 1; i >= 0; i-- {
 		if m.records[i].RequestID == requestID {
 			return m.records[i], nil
 		}
 	}
-	return DecisionRecord{}, nil
+	return DecisionRecord{}, ErrNotFound
 }

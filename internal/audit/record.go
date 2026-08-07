@@ -4,8 +4,13 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
 	"time"
 )
+
+// ErrNotFound is returned when no audit records exist in storage.
+var ErrNotFound = errors.New("audit: no records found")
 
 // DecisionRecord captures a single tool decision with hash-chaining metadata.
 type DecisionRecord struct {
@@ -34,7 +39,7 @@ func hashBytes(b []byte) string {
 func hashAny(v any) (string, error) {
 	b, err := json.Marshal(v)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("marshal value for hashing: %w", err)
 	}
 	return hashBytes(b), nil
 }
@@ -44,7 +49,7 @@ func HashRecord(r DecisionRecord) (string, error) {
 	r.RecordHash = ""
 	b, err := json.Marshal(r)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("marshal record for hashing: %w", err)
 	}
 	return hashBytes(b), nil
 }

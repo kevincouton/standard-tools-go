@@ -3,6 +3,7 @@ package audit
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 
 	"github.com/jackc/pgx/v5"
@@ -32,18 +33,27 @@ func (p *PostgresStorage) Append(ctx context.Context, r DecisionRecord) error {
 		return fmt.Errorf("marshal raw: %w", err)
 	}
 
+	inputJSON, err := json.Marshal(r.Input)
+	if err != nil {
+		return fmt.Errorf("marshal input: %w", err)
+	}
+	outputJSON, err := json.Marshal(r.Output)
+	if err != nil {
+		return fmt.Errorf("marshal output: %w", err)
+	}
+
 	const query = `
 		INSERT INTO audit_records (
 			request_id, recorded_at, tool_name, input_hash, output_hash,
 			status, error, git_commit_sha, package_version, random_seed,
-			prev_record_hash, record_hash, raw
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
+			prev_record_hash, record_hash, input_json, output_json, raw
+		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15)
 	`
 
 	_, err = p.pool.Exec(ctx, query,
 		r.RequestID, r.RecordedAt, r.ToolName, r.InputHash, r.OutputHash,
 		r.Status, nilable(r.Error), r.GitCommitSHA, r.PackageVersion, r.RandomSeed,
-		r.PrevRecordHash, r.RecordHash, rawJSON,
+		r.PrevRecordHash, r.RecordHash, inputJSON, outputJSON, rawJSON,
 	)
 	if err != nil {
 		return fmt.Errorf("insert audit record: %w", err)
@@ -56,7 +66,7 @@ func (p *PostgresStorage) Latest(ctx context.Context) (DecisionRecord, error) {
 	const query = `
 		SELECT request_id, recorded_at, tool_name, input_hash, output_hash,
 			status, error, git_commit_sha, package_version, random_seed,
-			prev_record_hash, record_hash, raw
+			prev_record_hash, record_hash, input_json, output_json
 		FROM audit_records
 		ORDER BY id DESC
 		LIMIT 1
@@ -69,7 +79,7 @@ func (p *PostgresStorage) GetByRequestID(ctx context.Context, requestID string) 
 	const query = `
 		SELECT request_id, recorded_at, tool_name, input_hash, output_hash,
 			status, error, git_commit_sha, package_version, random_seed,
-			prev_record_hash, record_hash, raw
+			prev_record_hash, record_hash, input_json, output_json
 		FROM audit_records
 		WHERE request_id = $1
 	`
@@ -78,16 +88,16 @@ func (p *PostgresStorage) GetByRequestID(ctx context.Context, requestID string) 
 
 func scanRecord(row pgx.Row) (DecisionRecord, error) {
 	var r DecisionRecord
-	var raw []byte
+	var inputJSON, outputJSON []byte
 	var errStr *string
 
 	err := row.Scan(
 		&r.RequestID, &r.RecordedAt, &r.ToolName, &r.InputHash, &r.OutputHash,
 		&r.Status, &errStr, &r.GitCommitSHA, &r.PackageVersion, &r.RandomSeed,
-		&r.PrevRecordHash, &r.RecordHash, &raw,
+		&r.PrevRecordHash, &r.RecordHash, &inputJSON, &outputJSON,
 	)
-	if err == pgx.ErrNoRows {
-		return DecisionRecord{}, nil
+	if errors.Is(err, pgx.ErrNoRows) {
+		return DecisionRecord{}, ErrNotFound
 	}
 	if err != nil {
 		return DecisionRecord{}, fmt.Errorf("scan audit record: %w", err)
@@ -97,16 +107,11 @@ func scanRecord(row pgx.Row) (DecisionRecord, error) {
 		r.Error = *errStr
 	}
 
-	if len(raw) > 0 {
-		var payload struct {
-			Input  json.RawMessage `json:"input"`
-			Output json.RawMessage `json:"output"`
-		}
-		if err := json.Unmarshal(raw, &payload); err != nil {
-			return DecisionRecord{}, fmt.Errorf("unmarshal raw: %w", err)
-		}
-		r.Input = payload.Input
-		r.Output = payload.Output
+	if len(inputJSON) > 0 {
+		r.Input = json.RawMessage(inputJSON)
+	}
+	if len(outputJSON) > 0 {
+		r.Output = json.RawMessage(outputJSON)
 	}
 
 	return r, nil

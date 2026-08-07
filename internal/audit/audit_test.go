@@ -2,6 +2,7 @@ package audit
 
 import (
 	"context"
+	"errors"
 	"testing"
 	"time"
 
@@ -59,6 +60,34 @@ func TestWriter_ChainsRecords(t *testing.T) {
 	assert.NotEqual(t, stored1.RecordHash, stored2.RecordHash, "record hashes should differ")
 }
 
+func TestWriter_NormalizesRecordedAtToUTC(t *testing.T) {
+	ctx := context.Background()
+	store := NewMemoryStorage()
+	w := NewWriter(store)
+
+	r := sampleRecord("r1")
+	r.RecordedAt = time.Date(2026, 8, 7, 12, 0, 0, 0, time.FixedZone("IST", 5*60*60))
+	require.NoError(t, w.Write(ctx, r))
+
+	stored, err := store.Latest(ctx)
+	require.NoError(t, err)
+	assert.Equal(t, time.UTC, stored.RecordedAt.Location())
+}
+
+func TestWriter_ComputesInputOutputHashes(t *testing.T) {
+	ctx := context.Background()
+	store := NewMemoryStorage()
+	w := NewWriter(store)
+
+	r := sampleRecord("r1")
+	require.NoError(t, w.Write(ctx, r))
+
+	stored, err := store.Latest(ctx)
+	require.NoError(t, err)
+	assert.NotEmpty(t, stored.InputHash)
+	assert.NotEmpty(t, stored.OutputHash)
+}
+
 func TestVerifier_ValidChain(t *testing.T) {
 	ctx := context.Background()
 	store := NewMemoryStorage()
@@ -67,6 +96,14 @@ func TestVerifier_ValidChain(t *testing.T) {
 
 	require.NoError(t, w.Write(ctx, sampleRecord("r1")))
 	require.NoError(t, w.Write(ctx, sampleRecord("r2")))
+
+	assert.NoError(t, v.VerifyChain(ctx))
+}
+
+func TestVerifier_EmptyChain(t *testing.T) {
+	ctx := context.Background()
+	store := NewMemoryStorage()
+	v := NewVerifier(store)
 
 	assert.NoError(t, v.VerifyChain(ctx))
 }
@@ -87,6 +124,22 @@ func TestVerifier_TamperedRecord(t *testing.T) {
 	assert.Error(t, v.VerifyChain(ctx))
 }
 
+func TestVerifier_TamperedInputHash(t *testing.T) {
+	ctx := context.Background()
+	store := NewMemoryStorage()
+	w := NewWriter(store)
+	v := NewVerifier(store)
+
+	require.NoError(t, w.Write(ctx, sampleRecord("r1")))
+
+	latest, err := store.Latest(ctx)
+	require.NoError(t, err)
+	latest.InputHash = "tampered"
+	require.NoError(t, store.Append(ctx, latest))
+
+	assert.Error(t, v.VerifyChain(ctx))
+}
+
 func TestMemoryStorage_GetByRequestID(t *testing.T) {
 	ctx := context.Background()
 	store := NewMemoryStorage()
@@ -100,7 +153,14 @@ func TestMemoryStorage_GetByRequestID(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "r1", found.RequestID)
 
-	missing, err := store.GetByRequestID(ctx, "unknown")
-	require.NoError(t, err)
-	assert.Equal(t, DecisionRecord{}, missing)
+	_, err = store.GetByRequestID(ctx, "unknown")
+	assert.True(t, errors.Is(err, ErrNotFound))
+}
+
+func TestMemoryStorage_LatestNotFound(t *testing.T) {
+	ctx := context.Background()
+	store := NewMemoryStorage()
+
+	_, err := store.Latest(ctx)
+	assert.True(t, errors.Is(err, ErrNotFound))
 }
