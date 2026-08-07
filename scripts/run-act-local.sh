@@ -51,8 +51,9 @@ act push --defaultbranch main --job integration --container-daemon-socket "$DOCK
 
 # Produce a local visual test report and keep a local copy.
 echo "Generating local visual test report..."
+[ -x ./scripts/visual-test-report.sh ] || { echo "Missing ./scripts/visual-test-report.sh" >&2; exit 1; }
 set +e
-bash -o pipefail -c 'go test ./... 2>&1 | tee test-output.log && ./scripts/visual-test-report.sh test-output.log test-report.html'
+bash -o pipefail -c 'go test ./... 2>&1 | tee test-output.log; test_exit=${PIPESTATUS[0]}; ./scripts/visual-test-report.sh test-output.log test-report.html; exit $test_exit'
 test_exit=$?
 set -e
 

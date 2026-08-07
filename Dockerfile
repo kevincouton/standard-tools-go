@@ -4,7 +4,7 @@
 # Build stage
 FROM golang:1.25-alpine AS builder
 
-RUN apk add --no-cache ca-certificates
+RUN apk update && apk upgrade --no-cache && apk add --no-cache ca-certificates
 
 WORKDIR /src
 

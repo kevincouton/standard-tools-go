@@ -22,3 +22,7 @@ __pycache__/
 *.swp
 *.swo
 *~
+Dockerfile*
+scripts/
+.gitignore
+.dockerignore
