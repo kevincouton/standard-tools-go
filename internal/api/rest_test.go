@@ -33,7 +33,7 @@ func newTestState() *AppState {
 func sendRequest(r chi.Router, method, path, body string) *httptest.ResponseRecorder {
 	req := httptest.NewRequest(method, path, strings.NewReader(body))
 	if body != "" {
-		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Content-Type", contentTypeJSON)
 	}
 	rec := httptest.NewRecorder()
 	r.ServeHTTP(rec, req)
@@ -43,6 +43,7 @@ func sendRequest(r chi.Router, method, path, body string) *httptest.ResponseReco
 func TestHealth(t *testing.T) {
 	rec := sendRequest(NewRouter(newTestState()), http.MethodGet, "/health", "")
 	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, contentTypeJSON, rec.Header().Get("Content-Type"))
 	assert.JSONEq(t, `{"status":"ok"}`, rec.Body.String())
 }
 
@@ -57,6 +58,7 @@ func TestListTools(t *testing.T) {
 func TestDispatchHealth(t *testing.T) {
 	rec := sendRequest(NewRouter(newTestState()), http.MethodPost, "/api/v1/agent/dispatch", `{"tool":"health","arguments":{}}`)
 	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, contentTypeJSON, rec.Header().Get("Content-Type"))
 	var result agent.ToolResult
 	assert.NoError(t, json.Unmarshal(rec.Body.Bytes(), &result))
 }
@@ -64,12 +66,19 @@ func TestDispatchHealth(t *testing.T) {
 func TestDispatchUnknownTool(t *testing.T) {
 	rec := sendRequest(NewRouter(newTestState()), http.MethodPost, "/api/v1/agent/dispatch", `{"tool":"nope","arguments":{}}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	assertErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST")
+	assertErrorResponse(t, rec, "BAD_REQUEST")
+}
+
+func TestDispatchMissingTool(t *testing.T) {
+	rec := sendRequest(NewRouter(newTestState()), http.MethodPost, "/api/v1/agent/dispatch", `{"arguments":{}}`)
+	assert.Equal(t, http.StatusBadRequest, rec.Code)
+	assertErrorResponse(t, rec, "BAD_REQUEST")
 }
 
 func TestFetchOhlcv(t *testing.T) {
 	rec := sendRequest(NewRouter(newTestState()), http.MethodGet, "/api/v1/market-data/TEST?start=2024-01-01&end=2024-01-05&interval=daily", "")
 	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, contentTypeJSON, rec.Header().Get("Content-Type"))
 	var series []map[string]any
 	assert.NoError(t, json.Unmarshal(rec.Body.Bytes(), &series))
 	assert.Len(t, series, 5)
@@ -78,25 +87,25 @@ func TestFetchOhlcv(t *testing.T) {
 func TestFetchOhlcvInvalidTicker(t *testing.T) {
 	rec := sendRequest(NewRouter(newTestState()), http.MethodGet, "/api/v1/market-data/%20?start=2024-01-01&end=2024-01-05", "")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	assertErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST")
+	assertErrorResponse(t, rec, "BAD_REQUEST")
 }
 
 func TestFetchOhlcvInvalidDate(t *testing.T) {
 	rec := sendRequest(NewRouter(newTestState()), http.MethodGet, "/api/v1/market-data/TEST?start=notadate&end=2024-01-05", "")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	assertErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST")
+	assertErrorResponse(t, rec, "BAD_REQUEST")
 }
 
 func TestFetchOhlcvMissingDate(t *testing.T) {
 	rec := sendRequest(NewRouter(newTestState()), http.MethodGet, "/api/v1/market-data/TEST", "")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	assertErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST")
+	assertErrorResponse(t, rec, "BAD_REQUEST")
 }
 
 func TestFetchOhlcvInvalidInterval(t *testing.T) {
 	rec := sendRequest(NewRouter(newTestState()), http.MethodGet, "/api/v1/market-data/TEST?start=2024-01-01&end=2024-01-05&interval=hourly", "")
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	assertErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST")
+	assertErrorResponse(t, rec, "BAD_REQUEST")
 }
 
 func TestFetchOhlcvIntervalCaseInsensitive(t *testing.T) {
@@ -152,7 +161,7 @@ func TestDomainErrorMapping(t *testing.T) {
 		t.Run(tc.name, func(t *testing.T) {
 			rec := sendRequest(router, tc.method, tc.path, tc.body)
 			assert.Equal(t, tc.wantStatus, rec.Code)
-			assertErrorResponse(t, rec.Body.Bytes(), tc.wantCode)
+			assertErrorResponse(t, rec, tc.wantCode)
 		})
 	}
 }
@@ -210,10 +219,11 @@ func TestEndToEndServer(t *testing.T) {
 	}
 }
 
-func assertErrorResponse(t *testing.T, body []byte, wantCode string) {
+func assertErrorResponse(t *testing.T, rec *httptest.ResponseRecorder, wantCode string) {
 	t.Helper()
+	assert.Equal(t, contentTypeJSON, rec.Header().Get("Content-Type"))
 	var er errorResponse
-	require.NoError(t, json.Unmarshal(body, &er))
+	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &er))
 	assert.NotEmpty(t, er.Error)
 	assert.Equal(t, wantCode, er.Code)
 }

@@ -14,6 +14,7 @@ import (
 func TestA2AAgentCard(t *testing.T) {
 	rec := sendRequest(NewRouter(newTestState()), http.MethodGet, "/a2a/agent.json", "")
 	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, contentTypeJSON, rec.Header().Get("Content-Type"))
 
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
@@ -73,11 +74,12 @@ func TestA2ADispatchUnknownTool(t *testing.T) {
 func TestA2ADispatchMalformedJSON(t *testing.T) {
 	rec := sendRequest(NewRouter(newTestState()), http.MethodPost, "/a2a/tasks", `{`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	assertErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST")
+	assert.Equal(t, contentTypeJSON, rec.Header().Get("Content-Type"))
+	assertErrorResponse(t, rec, "BAD_REQUEST")
 }
 
 func TestA2ADispatchMissingTool(t *testing.T) {
 	rec := sendRequest(NewRouter(newTestState()), http.MethodPost, "/a2a/tasks", `{"arguments":{}}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	assertErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST")
+	assertErrorResponse(t, rec, "BAD_REQUEST")
 }

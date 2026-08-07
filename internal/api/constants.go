@@ -5,6 +5,8 @@ const (
 	appVersion     = "0.1.0"
 	appDescription = "Quantitative finance toolkit agent"
 
+	contentTypeJSON = "application/json"
+
 	mcpProtocolVersion = "2024-11-05"
 
 	a2aStatusCompleted = "completed"

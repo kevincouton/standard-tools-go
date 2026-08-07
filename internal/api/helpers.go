@@ -1,6 +1,7 @@
 package api
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 )
@@ -19,7 +20,7 @@ func decodeToolCall(r *http.Request) (toolCallRequest, error) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		return req, err
 	}
-	if len(req.Arguments) == 0 || string(req.Arguments) == "null" {
+	if len(req.Arguments) == 0 || bytes.Equal(req.Arguments, []byte("null")) {
 		req.Arguments = json.RawMessage("{}")
 	}
 	return req, nil

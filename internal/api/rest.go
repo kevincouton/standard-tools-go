@@ -13,6 +13,8 @@ import (
 	"github.com/kevincouton/standard-tools-go/internal/core"
 )
 
+const dateFormat = "2006-01-02"
+
 func NewRouter(state *AppState) *chi.Mux {
 	r := chi.NewRouter()
 	r.Use(middleware.Recoverer)
@@ -36,12 +38,13 @@ func listTools(w http.ResponseWriter, r *http.Request) {
 
 func dispatchTool(state *AppState) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var req struct {
-			Tool      string          `json:"tool"`
-			Arguments json.RawMessage `json:"arguments"`
-		}
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		req, err := decodeToolCall(r)
+		if err != nil {
 			writeError(w, http.StatusBadRequest, err)
+			return
+		}
+		if req.Tool == "" {
+			writeError(w, http.StatusBadRequest, errors.New("tool is required"))
 			return
 		}
 		result, err := state.Dispatcher.Dispatch(r.Context(), agent.ToolCall{Name: req.Tool, Arguments: req.Arguments})
@@ -61,12 +64,12 @@ func fetchOhlcv(state *AppState) http.HandlerFunc {
 			return
 		}
 		query := r.URL.Query()
-		start, err := time.Parse("2006-01-02", query.Get("start"))
+		start, err := time.Parse(dateFormat, query.Get("start"))
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
 		}
-		end, err := time.Parse("2006-01-02", query.Get("end"))
+		end, err := time.Parse(dateFormat, query.Get("end"))
 		if err != nil {
 			writeError(w, http.StatusBadRequest, err)
 			return
@@ -123,7 +126,7 @@ type errorResponse struct {
 }
 
 func writeJSON(w http.ResponseWriter, status int, body any) {
-	w.Header().Set("Content-Type", "application/json")
+	w.Header().Set("Content-Type", contentTypeJSON)
 	w.WriteHeader(status)
 	if err := json.NewEncoder(w).Encode(body); err != nil {
 		slog.Error("failed to encode JSON response", "error", err)

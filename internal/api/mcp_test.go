@@ -13,6 +13,7 @@ import (
 func TestMcpCapabilities(t *testing.T) {
 	rec := sendRequest(NewRouter(newTestState()), http.MethodGet, "/mcp/capabilities", "")
 	assert.Equal(t, http.StatusOK, rec.Code)
+	assert.Equal(t, contentTypeJSON, rec.Header().Get("Content-Type"))
 
 	var body map[string]any
 	require.NoError(t, json.Unmarshal(rec.Body.Bytes(), &body))
@@ -73,11 +74,12 @@ func TestMcpCallToolUnknownTool(t *testing.T) {
 func TestMcpCallToolMalformedJSON(t *testing.T) {
 	rec := sendRequest(NewRouter(newTestState()), http.MethodPost, "/mcp/tools/call", `{`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	assertErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST")
+	assert.Equal(t, contentTypeJSON, rec.Header().Get("Content-Type"))
+	assertErrorResponse(t, rec, "BAD_REQUEST")
 }
 
 func TestMcpCallToolMissingName(t *testing.T) {
 	rec := sendRequest(NewRouter(newTestState()), http.MethodPost, "/mcp/tools/call", `{"arguments":{}}`)
 	assert.Equal(t, http.StatusBadRequest, rec.Code)
-	assertErrorResponse(t, rec.Body.Bytes(), "BAD_REQUEST")
+	assertErrorResponse(t, rec, "BAD_REQUEST")
 }

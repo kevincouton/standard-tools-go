@@ -10,6 +10,8 @@ import (
 	"github.com/kevincouton/standard-tools-go/internal/marketdata"
 )
 
+const dateFormat = "2006-01-02"
+
 type Dispatcher struct {
 	marketData *marketdata.Service
 }
@@ -61,11 +63,11 @@ func (d *Dispatcher) fetchOhlcv(ctx context.Context, args json.RawMessage) (Tool
 	if err != nil {
 		return ToolResult{}, err
 	}
-	start, err := time.Parse("2006-01-02", payload.Start)
+	start, err := time.Parse(dateFormat, payload.Start)
 	if err != nil {
 		return ToolResult{}, fmt.Errorf("%w: invalid start date %q: %w", core.ErrInvalidCommand, payload.Start, err)
 	}
-	end, err := time.Parse("2006-01-02", payload.End)
+	end, err := time.Parse(dateFormat, payload.End)
 	if err != nil {
 		return ToolResult{}, fmt.Errorf("%w: invalid end date %q: %w", core.ErrInvalidCommand, payload.End, err)
 	}
