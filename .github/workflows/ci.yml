@@ -22,7 +22,7 @@ jobs:
       - run: go mod tidy && git diff --exit-code go.mod go.sum
       - run: test -z "$(go fmt ./...)"
       - run: go vet ./...
-      - run: bash -o pipefail -c 'go test ./... 2>&1 | tee test-output.log; ./scripts/visual-test-report.sh test-output.log test-report.html'
+      - run: bash -o pipefail -c 'go test ./... 2>&1 | tee test-output.log; test_exit=${PIPESTATUS[0]}; ./scripts/visual-test-report.sh test-output.log test-report.html; exit $test_exit'
         if: always()
       - uses: actions/upload-artifact@v4
         if: always()

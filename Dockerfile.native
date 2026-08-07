@@ -17,7 +17,7 @@ COPY . .
 
 # Build a fully static, stripped Linux binary.
 ENV CGO_ENABLED=0 GOOS=linux
-RUN go build -ldflags='-s -w' -o /usr/local/bin/server ./cmd/server
+RUN go build -trimpath -ldflags='-s -w' -o /usr/local/bin/server ./cmd/server
 
 # Final stage: empty scratch image with only the static binary and CA certs.
 FROM scratch

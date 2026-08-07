@@ -4,7 +4,7 @@
 # Build stage
 FROM golang:1.25-alpine AS builder
 
-RUN apk add --no-cache git ca-certificates
+RUN apk add --no-cache ca-certificates
 
 WORKDIR /src
 
@@ -17,7 +17,7 @@ COPY . .
 
 # Build a static Linux binary for the server.
 ENV CGO_ENABLED=0 GOOS=linux
-RUN go build -ldflags='-s -w' -o /usr/local/bin/server ./cmd/server
+RUN go build -trimpath -ldflags='-s -w' -o /usr/local/bin/server ./cmd/server
 
 # Final stage: minimal distroless image.
 FROM gcr.io/distroless/static-debian12:nonroot
