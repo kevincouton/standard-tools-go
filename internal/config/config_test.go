@@ -81,6 +81,8 @@ log_level = "warn"
 }
 
 func TestLoadMissingFileReturnsError(t *testing.T) {
-	_, err := Load("/nonexistent/path/config.toml")
+	path := "/nonexistent/path/config.toml"
+	_, err := Load(path)
 	require.Error(t, err)
+	assert.ErrorContains(t, err, path)
 }

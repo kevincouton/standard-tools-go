@@ -37,9 +37,11 @@ type PolygonConfig struct {
 }
 
 // Load reads configuration from optional TOML files and environment variables.
-// Precedence (lowest to highest): defaults < .env < TOML files < SQT_* env vars.
-// Nested keys in env vars are expressed with double underscores, e.g.
-// SQT_POLYGON__API_KEY maps to polygon.api_key.
+// Precedence (lowest to highest): defaults < TOML files < env vars.
+// Env vars come from both a optional .env file and the process environment;
+// both are treated with equal precedence, so SQT_HTTP_PORT and a .env HTTP_PORT
+// value both override a TOML file. Nested keys in env vars are expressed with
+// double underscores, e.g. SQT_POLYGON__API_KEY maps to polygon.api_key.
 func Load(paths ...string) (*Config, error) {
 	// .env is optional; ignore missing-file errors so local development stays simple.
 	_ = godotenv.Load(defaultDotEnv)
