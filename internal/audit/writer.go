@@ -5,12 +5,16 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 )
 
 // Writer records hash-chained decision records to the underlying storage.
+// Writes are serialized within a single process to prevent forked chains.
+// Distributed concurrency will require storage-level locking (e.g., advisory locks).
 type Writer struct {
 	storage Storage
+	mu      sync.Mutex
 }
 
 func NewWriter(storage Storage) *Writer {
@@ -21,6 +25,9 @@ func NewWriter(storage Storage) *Writer {
 // Input and Output are canonicalized to json.RawMessage so that hashing and later
 // verification are stable across storage round-trips.
 func (w *Writer) Write(ctx context.Context, r DecisionRecord) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	if r.RecordedAt.IsZero() {
 		r.RecordedAt = Now()
 	}
