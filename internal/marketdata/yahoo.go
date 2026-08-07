@@ -13,7 +13,12 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-const defaultYahooChartURL = "https://query1.finance.yahoo.com/v8/finance/chart"
+const (
+	defaultYahooChartURL = "https://query1.finance.yahoo.com/v8/finance/chart"
+	yahooRequestTimeout  = 15 * time.Second
+	yahooUserAgent       = "Mozilla/5.0 (compatible; StandardTools/1.0)"
+	yahooTimezone        = "America/New_York"
+)
 
 type YahooProvider struct {
 	baseURL string
@@ -23,7 +28,7 @@ type YahooProvider struct {
 func NewYahooProvider() *YahooProvider {
 	return &YahooProvider{
 		baseURL: defaultYahooChartURL,
-		client:  &http.Client{Timeout: 15 * time.Second},
+		client:  &http.Client{Timeout: yahooRequestTimeout},
 	}
 }
 
@@ -33,7 +38,7 @@ func (y *YahooProvider) Fetch(ctx context.Context, ticker core.Ticker, interval 
 	intervalStr := y.mapInterval(interval)
 	u, err := url.Parse(fmt.Sprintf("%s/%s", y.baseURL, url.PathEscape(ticker.Symbol)))
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid yahoo url: %w", core.ErrProviderNotAvailable, err)
+		return nil, fmt.Errorf("%w: invalid yahoo url: %w", core.ErrInternal, err)
 	}
 	q := u.Query()
 	q.Set("period1", fmt.Sprintf("%d", rng.Start.Unix()))
@@ -44,9 +49,9 @@ func (y *YahooProvider) Fetch(ctx context.Context, ticker core.Ticker, interval 
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to build yahoo request: %w", core.ErrProviderNotAvailable, err)
+		return nil, fmt.Errorf("%w: failed to build yahoo request: %w", core.ErrInternal, err)
 	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (compatible; StandardTools/1.0)")
+	req.Header.Set("User-Agent", yahooUserAgent)
 
 	resp, err := y.client.Do(req)
 	if err != nil {
@@ -55,24 +60,24 @@ func (y *YahooProvider) Fetch(ctx context.Context, ticker core.Ticker, interval 
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%w: yahoo returned status %d", core.ErrProviderNotAvailable, resp.StatusCode)
+		return nil, fmt.Errorf("%w: yahoo returned status %d", core.ErrDataQuality, resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to read yahoo response: %w", core.ErrProviderNotAvailable, err)
+		return nil, fmt.Errorf("%w: failed to read yahoo response: %w", core.ErrInternal, err)
 	}
 
 	var payload yahooChartResponse
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, fmt.Errorf("%w: failed to parse yahoo response: %w", core.ErrProviderNotAvailable, err)
+		return nil, fmt.Errorf("%w: failed to parse yahoo response: %w", core.ErrDataQuality, err)
 	}
 
 	if len(payload.Chart.Error) > 0 {
-		return nil, fmt.Errorf("%w: yahoo api error: %s", core.ErrProviderNotAvailable, payload.Chart.Error)
+		return nil, fmt.Errorf("%w: yahoo api error: %s", core.ErrDataQuality, payload.Chart.Error)
 	}
 	if len(payload.Chart.Result) == 0 {
-		return nil, fmt.Errorf("%w: yahoo returned empty result", core.ErrProviderNotAvailable)
+		return nil, fmt.Errorf("%w: yahoo returned empty result", core.ErrDataQuality)
 	}
 
 	result := payload.Chart.Result[0]
@@ -93,8 +98,8 @@ func (y *YahooProvider) GetMetadata(ctx context.Context) (core.DataSetMetadata, 
 		Adjusted:         true,
 		SurvivorshipFree: false,
 		PointInTime:      false,
-		Frequency:        "daily",
-		Timezone:         "America/New_York",
+		Frequency:        core.Daily.String(),
+		Timezone:         yahooTimezone,
 		RetrievedAt:      time.Now().UTC(),
 	}, nil
 }
@@ -111,16 +116,21 @@ func (y *YahooProvider) mapInterval(interval core.BarInterval) string {
 }
 
 func (y *YahooProvider) convertResult(result yahooChartResult) ([]core.OHLCV, error) {
+	if len(result.Indicators.Quote) == 0 {
+		return nil, fmt.Errorf("%w: yahoo response has no quote indicators", core.ErrDataQuality)
+	}
+
 	timestamps := result.Timestamp
-	opens := result.Indicators.Quote[0].Open
-	highs := result.Indicators.Quote[0].High
-	lows := result.Indicators.Quote[0].Low
-	closes := result.Indicators.Quote[0].Close
-	volumes := result.Indicators.Quote[0].Volume
+	quote := result.Indicators.Quote[0]
+	opens := quote.Open
+	highs := quote.High
+	lows := quote.Low
+	closes := quote.Close
+	volumes := quote.Volume
 
 	n := len(timestamps)
 	if n == 0 || n != len(opens) || n != len(highs) || n != len(lows) || n != len(closes) || n != len(volumes) {
-		return nil, fmt.Errorf("%w: yahoo result arrays have mismatched lengths", core.ErrProviderNotAvailable)
+		return nil, fmt.Errorf("%w: yahoo result arrays have mismatched lengths", core.ErrDataQuality)
 	}
 
 	bars := make([]core.OHLCV, 0, n)

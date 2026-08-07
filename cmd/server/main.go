@@ -21,7 +21,7 @@ func main() {
 	cache := marketdata.NewInMemoryCache()
 	svc := marketdata.NewService("synthetic", cache)
 	svc.Register(&marketdata.SyntheticProvider{})
-	svc.Register(&marketdata.YahooProvider{})
+	svc.Register(marketdata.NewYahooProvider())
 
 	state := &api.AppState{
 		Dispatcher: agent.NewDispatcher(svc),

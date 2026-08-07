@@ -11,9 +11,12 @@ import (
 	"github.com/kevincouton/standard-tools-go/internal/core"
 	"github.com/shopspring/decimal"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestNewProviderFactory(t *testing.T) {
+	t.Setenv("SQT_POLYGON_API_KEY", "factory-test-key")
+
 	cases := []struct {
 		name    string
 		wantErr bool
@@ -35,6 +38,13 @@ func TestNewProviderFactory(t *testing.T) {
 			assert.Equal(t, tc.name, p.Name())
 		})
 	}
+}
+
+func TestNewProviderFactoryPolygonMissingKey(t *testing.T) {
+	t.Setenv("SQT_POLYGON_API_KEY", "")
+	_, err := NewProvider("polygon")
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, core.ErrProviderNotAvailable))
 }
 
 func TestYahooProviderFetchWithMockServer(t *testing.T) {
@@ -134,7 +144,8 @@ func TestPolygonProviderFetchWithMockServer(t *testing.T) {
 	}))
 	defer server.Close()
 
-	provider := NewPolygonProvider("test-api-key")
+	provider, err := NewPolygonProvider("test-api-key")
+	require.NoError(t, err)
 	provider.client = server.Client()
 	provider.baseURL = server.URL
 
@@ -149,7 +160,8 @@ func TestPolygonProviderFetchWithMockServer(t *testing.T) {
 }
 
 func TestPolygonProviderConvertResults(t *testing.T) {
-	provider := NewPolygonProvider("test-api-key")
+	provider, err := NewPolygonProvider("test-api-key")
+	require.NoError(t, err)
 	results := []polygonAggregate{
 		{Timestamp: 1704067200000, Open: 100.0, High: 102.0, Low: 99.0, Close: 101.0, Volume: 1000},
 		{Timestamp: 1704153600000, Open: 101.0, High: 103.0, Low: 100.0, Close: 102.0, Volume: 2000},
@@ -164,4 +176,89 @@ func TestPolygonProviderConvertResults(t *testing.T) {
 	assert.True(t, bars[0].Close.Equal(decimal.NewFromInt(101)))
 	assert.Equal(t, int64(1000), bars[0].Volume)
 	assert.Equal(t, time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC), bars[0].Date)
+}
+func TestPolygonProviderRequiresAPIKey(t *testing.T) {
+	_, err := NewPolygonProvider("")
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, core.ErrProviderNotAvailable))
+}
+
+func TestYahooProviderFetchNon200(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusUnauthorized)
+	}))
+	defer server.Close()
+
+	provider := NewYahooProvider()
+	provider.client = server.Client()
+	provider.baseURL = server.URL
+
+	start := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)
+	rng, _ := core.NewDateRange(start, end)
+	ticker, _ := core.NewTicker("TEST")
+
+	_, err := provider.Fetch(context.Background(), ticker, core.Daily, rng)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, core.ErrDataQuality))
+}
+
+func TestYahooProviderFetchInvalidJSON(t *testing.T) {
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_, _ = w.Write([]byte(`not json`))
+	}))
+	defer server.Close()
+
+	provider := NewYahooProvider()
+	provider.client = server.Client()
+	provider.baseURL = server.URL
+
+	start := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	end := time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)
+	rng, _ := core.NewDateRange(start, end)
+	ticker, _ := core.NewTicker("TEST")
+
+	_, err := provider.Fetch(context.Background(), ticker, core.Daily, rng)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, core.ErrDataQuality))
+}
+
+func TestYahooProviderConvertResultEmptyQuote(t *testing.T) {
+	provider := NewYahooProvider()
+	result := yahooChartResult{Timestamp: []int64{1704067200}}
+
+	_, err := provider.convertResult(result)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, core.ErrDataQuality))
+}
+
+func TestYahooProviderConvertResultMismatchedLengths(t *testing.T) {
+	provider := NewYahooProvider()
+	result := yahooChartResult{
+		Timestamp: []int64{1704067200, 1704153600},
+		Indicators: struct {
+			Quote []struct {
+				Open   []float64 `json:"open"`
+				High   []float64 `json:"high"`
+				Low    []float64 `json:"low"`
+				Close  []float64 `json:"close"`
+				Volume []int64   `json:"volume"`
+			} `json:"quote"`
+		}{
+			Quote: []struct {
+				Open   []float64 `json:"open"`
+				High   []float64 `json:"high"`
+				Low    []float64 `json:"low"`
+				Close  []float64 `json:"close"`
+				Volume []int64   `json:"volume"`
+			}{
+				{Open: []float64{100.0}, High: []float64{102.0}, Low: []float64{99.0}, Close: []float64{101.0}, Volume: []int64{1000}},
+			},
+		},
+	}
+
+	_, err := provider.convertResult(result)
+	require.Error(t, err)
+	assert.True(t, errors.Is(err, core.ErrDataQuality))
 }

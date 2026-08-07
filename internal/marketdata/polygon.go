@@ -13,7 +13,11 @@ import (
 	"github.com/shopspring/decimal"
 )
 
-const defaultPolygonBaseURL = "https://api.polygon.io"
+const (
+	defaultPolygonBaseURL = "https://api.polygon.io"
+	polygonRequestTimeout = 15 * time.Second
+	polygonTimezone       = "America/New_York"
+)
 
 type PolygonProvider struct {
 	baseURL string
@@ -21,12 +25,15 @@ type PolygonProvider struct {
 	client  *http.Client
 }
 
-func NewPolygonProvider(apiKey string) *PolygonProvider {
+func NewPolygonProvider(apiKey string) (*PolygonProvider, error) {
+	if apiKey == "" {
+		return nil, fmt.Errorf("%w: polygon api key is required", core.ErrProviderNotAvailable)
+	}
 	return &PolygonProvider{
 		baseURL: defaultPolygonBaseURL,
 		apiKey:  apiKey,
-		client:  &http.Client{Timeout: 15 * time.Second},
-	}
+		client:  &http.Client{Timeout: polygonRequestTimeout},
+	}, nil
 }
 
 func (p *PolygonProvider) Name() string { return "polygon" }
@@ -39,7 +46,7 @@ func (p *PolygonProvider) Fetch(ctx context.Context, ticker core.Ticker, interva
 	u, err := url.Parse(fmt.Sprintf("%s/v2/aggs/ticker/%s/range/%d/%s/%s/%s",
 		p.baseURL, url.PathEscape(ticker.Symbol), multiplier, timespan, from, to))
 	if err != nil {
-		return nil, fmt.Errorf("%w: invalid polygon url: %w", core.ErrProviderNotAvailable, err)
+		return nil, fmt.Errorf("%w: invalid polygon url: %w", core.ErrInternal, err)
 	}
 	q := u.Query()
 	q.Set("adjusted", "true")
@@ -49,7 +56,7 @@ func (p *PolygonProvider) Fetch(ctx context.Context, ticker core.Ticker, interva
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to build polygon request: %w", core.ErrProviderNotAvailable, err)
+		return nil, fmt.Errorf("%w: failed to build polygon request: %w", core.ErrInternal, err)
 	}
 
 	resp, err := p.client.Do(req)
@@ -59,17 +66,17 @@ func (p *PolygonProvider) Fetch(ctx context.Context, ticker core.Ticker, interva
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("%w: polygon returned status %d", core.ErrProviderNotAvailable, resp.StatusCode)
+		return nil, fmt.Errorf("%w: polygon returned status %d", core.ErrDataQuality, resp.StatusCode)
 	}
 
 	body, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return nil, fmt.Errorf("%w: failed to read polygon response: %w", core.ErrProviderNotAvailable, err)
+		return nil, fmt.Errorf("%w: failed to read polygon response: %w", core.ErrInternal, err)
 	}
 
 	var payload polygonAggregatesResponse
 	if err := json.Unmarshal(body, &payload); err != nil {
-		return nil, fmt.Errorf("%w: failed to parse polygon response: %w", core.ErrProviderNotAvailable, err)
+		return nil, fmt.Errorf("%w: failed to parse polygon response: %w", core.ErrDataQuality, err)
 	}
 
 	return p.convertResults(payload.Results)
@@ -89,8 +96,8 @@ func (p *PolygonProvider) GetMetadata(ctx context.Context) (core.DataSetMetadata
 		Adjusted:         true,
 		SurvivorshipFree: true,
 		PointInTime:      false,
-		Frequency:        "daily",
-		Timezone:         "America/New_York",
+		Frequency:        core.Daily.String(),
+		Timezone:         polygonTimezone,
 		RetrievedAt:      time.Now().UTC(),
 	}, nil
 }
