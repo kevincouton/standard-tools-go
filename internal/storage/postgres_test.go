@@ -29,14 +29,14 @@ func TestNewPoolAndMigrate(t *testing.T) {
 
 	var tableExists bool
 	err = pool.QueryRow(ctx,
-		"SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'audit_records')",
+		"SELECT EXISTS (SELECT 1 FROM information_schema.tables WHERE table_schema = 'public' AND table_name = 'audit_records')",
 	).Scan(&tableExists)
 	require.NoError(t, err)
 	assert.True(t, tableExists, "audit_records table should exist after migration")
 
 	var indexCount int
 	err = pool.QueryRow(ctx,
-		"SELECT COUNT(*) FROM pg_indexes WHERE tablename = 'audit_records'",
+		"SELECT COUNT(*) FROM pg_indexes WHERE schemaname = 'public' AND tablename = 'audit_records'",
 	).Scan(&indexCount)
 	require.NoError(t, err)
 	assert.GreaterOrEqual(t, indexCount, 2, "audit_records should have at least the two expected indexes")
